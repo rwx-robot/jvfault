@@ -1,0 +1,5 @@
+app:
+  timeout: 60
+  name: jvfault-prod
+server:
+  port: 9090

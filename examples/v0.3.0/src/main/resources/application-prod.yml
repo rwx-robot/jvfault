@@ -1,0 +1,4 @@
+app:
+  timeout: 60
+db:
+  url: jdbc:postgresql://prod-db:5432/orders
