@@ -42,5 +42,10 @@ listOf(
     "plugin",
     "apt",
     "aot",
+    "native",
+    "logging",
     "tests"
 ).forEach { include(":$it") }
+
+// runnable examples
+    include(":examples:v0.10.0")
