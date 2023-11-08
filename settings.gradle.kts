@@ -14,47 +14,19 @@ dependencyResolutionManagement {
 }
 
 listOf(
-    "core",
-    "test",
-    "aop",
-    "exception",
-    "validation",
-    "web",
-    "config",
-    "platform-servlet",
-    "websocket",
-    "sse",
-    "microservices",
-    "transport-tcp",
-    "transport-grpc",
-    "transport-kafka",
-    "transport-redis",
-    "transport-nats",
-    "transport-rmq",
-    "transport-mqtt",
-    "openapi",
-    "graphql",
-    "scheduling",
-    "cache",
-    "tracing",
-    "metrics",
-    "virtualthreads",
-    "plugin",
-    "apt",
-    "aot",
-    "native",
-    "logging",
-    "ai",
-    "rag",
-    "mcp",
-    "security",
-    "compliance",
-    "migration",
-    "ops",
-    "distribution",
-    "tests"
+    "core", "aop", "config", "logging", "validation", "exception",
+    "scheduling", "cache", "tracing", "metrics", "plugin", "apt",
+    "microservices", "test", "tests",
+    "web", "platform-servlet", "platform-reactive", "websocket", "sse",
+    "openapi", "graphql", "security",
+    "transport-tcp", "transport-grpc", "transport-kafka", "transport-redis",
+    "transport-nats", "transport-rmq", "transport-mqtt",
+    "aot", "native", "virtualthreads",
+    "ai", "rag", "mcp",
+    "compliance", "migration", "ops"
 ).forEach { include(":$it") }
 
-// runnable examples
-    include(":examples:v1.0.0")
-    include(":examples:tests")
+listOf(
+    "v0.1.0", "v0.2.0", "v0.3.0", "v0.4.0", "v0.5.0", "v0.6.0",
+    "v0.7.0", "v0.8.0", "v0.10.0", "v0.11.0"
+).forEach { include(":examples:$it") }
