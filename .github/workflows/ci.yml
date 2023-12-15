@@ -9,6 +9,41 @@ on:
 jobs:
   build:
     runs-on: ubuntu-latest
+
+    # 真实 broker：让传输集成测试连真服务，而不是靠 Docker 自行拉起容器。
+    # 后续接入 kafka / rabbitmq / nats / mosquitto 时在此补充 service 与 env 即可。
+    services:
+      redis:
+        image: redis:7.2-alpine
+        ports:
+          - 6379:6379
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 5s
+          --health-timeout 3s
+          --health-retries 20
+
+      kafka:
+        image: apache/kafka:3.7.0
+        ports:
+          - 9092:9092
+        env:
+          KAFKA_NODE_ID: 1
+          KAFKA_PROCESS_ROLES: broker,controller
+          KAFKA_LISTENERS: PLAINTEXT://:9092,CONTROLLER://:9093
+          KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://localhost:9092
+          KAFKA_CONTROLLER_QUORUM_VOTERS: 1@localhost:9093
+          KAFKA_CONTROLLER_LISTENER_NAMES: CONTROLLER
+          KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: CONTROLLER:PLAINTEXT,PLAINTEXT:PLAINTEXT
+          KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+          KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR: 1
+          KAFKA_TRANSACTION_STATE_LOG_MIN_ISR: 1
+          KAFKA_GROUP_INITIAL_REBALANCE_DELAY_MS: 0
+
+    env:
+      JVFAULT_REDIS_BOOTSTRAP: redis://127.0.0.1:6379
+      JVFAULT_KAFKA_BOOTSTRAP: localhost:9092
+
     steps:
       - uses: actions/checkout@v4
 
@@ -23,3 +58,14 @@ jobs:
 
       - name: Build and test
         run: ./gradlew build --no-daemon
+
+      - name: Verify publishing to Maven Local
+        run: ./gradlew publishToMavenLocal --no-daemon
+
+      - name: Upload test reports
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: test-reports
+          path: '**/build/reports/tests/test'
+          if-no-files-found: ignore

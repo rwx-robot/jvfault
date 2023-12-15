@@ -7,7 +7,10 @@ import com.jvfault.core.scanner.ModuleScanner;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.io.IOException;
+import java.io.InputStream;
 import java.util.Arrays;
+import java.util.Properties;
 
 /**
  * jvfault 引导类 - 应用程序启动入口
@@ -104,7 +107,24 @@ public final class JvfaultApplication {
     public static String getVersion() {
         Package pkg = JvfaultApplication.class.getPackage();
         String version = pkg != null ? pkg.getImplementationVersion() : null;
-        return version != null ? version : "0.1.0";
+        if (version != null) {
+            return version;
+        }
+        // 回退到构建期生成的版本属性（jar 内 META-INF/jvfault-build.properties）
+        try (InputStream in = JvfaultApplication.class
+                .getResourceAsStream("/META-INF/jvfault-build.properties")) {
+            if (in != null) {
+                Properties props = new Properties();
+                props.load(in);
+                String built = props.getProperty("version");
+                if (built != null && !built.isEmpty()) {
+                    return built;
+                }
+            }
+        } catch (IOException ignored) {
+            // 读不到则落到 unknown
+        }
+        return "unknown";
     }
 
     /**

@@ -8,12 +8,23 @@
 
 ## 1. 一句话现状
 
-`jvfault` 是一个仿 NestJS 架构的纯 Java 框架，**完整实现且全部测试通过**：
-- 38 个框架模块 + 11 个版本示例
+`jvfault` 是一个注解驱动的模块化纯 Java 框架，**完整实现且全部测试通过**：
+- 39 个框架模块 + 12 个版本示例（v0.1.0 - v1.0.0 每版本一个）
 - 13 个 git commit（每个版本一个）+ 12 个 tag（v0.1.0 ~ v1.0.0 全含）
-- **245 测试 0 失败 0 跳过**（含 7 个 Jetty+JWT 端到端 + 3 个 Redis 真实容器集成）
+- **251 测试 0 失败 0 跳过**（含 7 个 Jetty+JWT 端到端 + 3 个 Redis 真实 broker + 3 个 Kafka 真实 broker 集成）
 - 40 个构件已实测发布到本地 m2（`./gradlew publishToMavenLocal`）
 - 远程仓库：`git@github.com:rwx-robot/jvfault.git`（仅 main 分支，身份 johnnynode <johnnynode@gmail.com>）
+
+### 1.1 第二轮（2026-09-22 晚）修复与补全
+
+| 项 | 问题 | 处理 |
+|----|------|------|
+| 示例闭环 | `settings.gradle.kts` 只注册 10 个示例，**缺 v0.9.0（plugin/apt/aot）与 v1.0.0（security/compliance/migration/ops）** | 新建两个可运行示例并注册，现 12/12 |
+| apt 真失效 | 缺 `META-INF/services/javax.annotation.processing.Processor`，消费者挂 `annotationProcessor` 时处理器**从不运行** | 补注册 + 加真实 javac 编译测试，示例输出已非空 |
+| CI 空跑 | CI 无 broker service，传输集成测试静默跳过 | 加 redis/kafka service + `JVFAULT_*_BOOTSTRAP` 环境变量契约 |
+| kafka 真实集成 | 此前只有单元测试，未连过真 broker | 新增 `KafkaIntegrationTest`（3 例，真实容器/CI service 双通道） |
+| Kafka bug A | `close()` 从调用线程关 consumer，与 poll 线程冲突 → `ConcurrentModificationException` | 改由轮询线程关闭 consumer，`close()` 只 wakeup + 等待 |
+| Kafka bug B | 无订阅时 `bind()` 直接 `poll()` → `IllegalStateException` | 仅在有 handler 订阅时触发首次 poll |
 
 ## 2. 工作区结构
 
@@ -31,9 +42,9 @@
 │   ├── .github/workflows/ci.yml
 │   ├── build.gradle.kts / settings.gradle.kts / gradlew
 │   └── README.md / CHANGELOG.md / docs/architecture-decisions.md
-├── .jvfault-memory/   # 本地（不入库）— 含 nestjs-analysis / phase-plan
+├── .jvfault-memory/   # 本地（不入库）— 参考分析与阶段规划
 ├── .jvfault-state/    # 本地（不入库）— 当前 phase JSON
-├── reference/         # 本地（不入库）— NestJS v10 源码
+├── reference/         # 本地（不入库）— 外部参考资料
 └── .gitignore / README.md / AGENT_HANDOFF.md  # 仅这三个文件入库
 ```
 
@@ -76,10 +87,10 @@ git push --force origin --tags
 
 ## 5. 用户偏好（严格遵守）
 
-- **内容红线**：仓库任何文件/任何提交**不得出现 NestJS/NodeJS 相关表述**（含 javadoc "对应 NestJS:" 行；Spring 相关注释可保留）
+- **内容红线**：仓库任何文件/任何提交**不得出现其他语言框架的名称对照表述**（含 javadoc "对应 XX:" 行；Spring 相关注释可保留）
 - **git 偏好**：明确指示强推（`--force`），指定邮箱 `johnnynode@gmail.com`
 - **构建 JVM 偏好**：必须用 JDK 21 作 Gradle JVM（`JAVA_HOME=$(/usr/libexec/java_home -v 21)`，系统默认 Java 是 12）
-- **架构偏好**：注解驱动、模块化、类型安全；NestJS 风格但用 Java 标准实现
+- **架构偏好**：注解驱动、模块化、类型安全；以 Java 标准（JSR-330/250/380、SPI）实现
 - **语言偏好**：用户用中文沟通，文档与示例偏向现代框架术语
 
 ## 6. 接手时已确认的踩过的坑
