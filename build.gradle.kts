@@ -27,6 +27,16 @@ subprojects {
         archivesName = "jvfault-${project.name}"
     }
 
+    // JPMS 互操作第一步：为构件写入 Automatic-Module-Name。
+    // 基线为 Java 8（--release 8），无法编译 module-info.java；先给每个构件
+    // 一个稳定的自动模块名，消费方即可在 module path 上直接 requires。
+    // 后续若上 module-info（多版本 JAR），模块名须与此保持一致。
+    tasks.named<Jar>("jar") {
+        manifest {
+            attributes["Automatic-Module-Name"] = "com.jvfault." + project.name.replace('-', '.')
+        }
+    }
+
     repositories {
         mavenCentral()
     }

@@ -120,16 +120,26 @@ git push --force origin --tags
 
 ## 7. 下一步建议（按优先级）
 
-### 7.1 【高】CI 镜像预热
-当前 `.github/workflows/ci.yml` 只跑 `./gradlew build`——**实际 CI 中需要**：
-- 预拉 `redis:7.2-alpine`（已在 redis 测试里用）、`kafka:3.7.0`、`rabbitmq:3-management`、 `nats:2.10-alpine`、`eclipse-mosquitto:2.0`、`envoyproxy/envoy:v1.30`（GRPC stub）镜像
-- 加 `services:` 段（docker-compose 形式）启动 broker，让 transport-redis 等的集成测试在 CI 中真跑
-- 预期：CI 中 7 个传输 × 1~2 个测试 ≈ 14 个真实集成测试全跑通
+### 7.1 【已完成 v1.0.2】CI 真实 broker services
+`.github/workflows/ci.yml` 已加 `services:` 段与 `JVFAULT_*_BOOTSTRAP` 契约：
+- `redis:7.2-alpine` / `apache/kafka:3.7.0`(KRaft) / `rabbitmq:3-management` / `nats:2.10-alpine` / `eclipse-mosquitto:1.6`
+- grpc **无需** service：服务端以 grpc-netty 绑定随机端口本机回环，集成测试直接连
+- 现状：7 个传输各 3 例真实集成测试（rabbitmq/nats/mosquitto/grpc 为 v1.0.2 新增），本地已实测全绿
 
-### 7.2 【高】JPMS module-info
-JDK 17 模块（aot/native/ai/rag/mcp）已经验证 --release 17 编译正常。
-- **建议给 v0.10.0 之后的模块加 module-info.java**（core / aop / web / config / validation / exception / logging / scheduling / cache / metrics）
-- 需 module path 重写测试隔离——`java.lang.module.ModuleFinder` 集成测试
+### 7.2 【中，需决策】JPMS
+**已完成（v1.0.2，Java 8 兼容的第一步）**：为 40 个主构件写入
+`Automatic-Module-Name: com.jvfault.<name>`（`-` 换 `.`），消费方在 module path 上可直接 `requires`。
+
+**module-info.java 存在硬冲突，需先决策**：
+- `module-info.java` 只能以 `--release 9+` 编译，而本项目全局 `options.release = 8`（ADR-002 基线）
+- ADR-003 曾**主动移除** module-info（"v0.x 阶段无 JPMS 需求"）
+- 框架重度反射（扫描 / IoC / AOP），命名模块需逐一 `opens`，否则 `InaccessibleObjectException`
+
+可选路径（择一）：
+1. **多版本 JAR（MR-JAR）**：main 仍 `--release 8`，另建 `src/main/java9/module-info.java` 以 9 编译，
+   打进 `META-INF/versions/9/`，manifest 置 `Multi-Release: true`。保留 Java 8 基线，成本较高。
+2. **放弃 Java 8 基线**（改 release 17）：最省事，但推翻 README / ADR 的核心卖点。
+3. **保持现状**：仅用 Automatic-Module-Name（已完成），不引入 module-info。
 
 ### 7.3 【中】Sonatype OSS 发布
 `publishToMavenLocal` 已实测 40 个构件全部发布。**进一步**：
