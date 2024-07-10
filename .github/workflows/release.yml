@@ -49,8 +49,9 @@ jobs:
         id: changelog
         run: |
           VERSION=${GITHUB_REF_NAME#v}
-          awk -v v="$VERSION" '
-            /^## \[v/ {
+          # CHANGELOG 行形如 "## [v1.0.5] - ..."；以 'v' 前缀查子串，确保精确匹配
+          awk -v v="v$VERSION" '
+            /^## \[v[0-9]/ {
               if (in_block) exit
               if (index($0, "[" v "]") > 0) in_block = 1
             }
