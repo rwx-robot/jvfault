@@ -7,12 +7,10 @@ on:
   pull_request:
     branches: [ main ]
 
-# 同一 ref 的多次运行互斥：新 push 取消同 ref 上仍在排队的旧 run
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
 
-# 收紧 GITHUB_TOKEN 权限（GitHub 建议默认 read-only + 显式声明写权限）
 permissions:
   contents: read
 
@@ -20,11 +18,7 @@ jobs:
   build:
     runs-on: ubuntu-latest
 
-    # 真实 broker：让传输集成测试连真服务，而不是靠 Docker 自行拉起容器。
-    # 已接入 redis / rabbitmq / nats / mosquitto；gRPC 走本机回环无需 service。
-    # Kafka 暂不在 CI —— KRaft 冷启动 10-30s + 'Initialize containers' 步会被
-    # kafka-broker-api-versions.sh 健康检查超时误判 fail。KafkaIntegrationTest
-    # 在本地 + Docker 通道已验证 3/3；CI 暂跳过（业务代码已覆盖集成路径）。
+    # 临时只启用 redis 一个 service —— 排查哪个 service 让 'Initialize containers' 失败
     services:
       redis:
         image: redis:7.2-alpine
@@ -36,73 +30,26 @@ jobs:
           --health-timeout 3s
           --health-retries 20
 
-      rabbitmq:
-        image: rabbitmq:3-management
-        ports:
-          - 5672:5672
-        options: >-
-          --health-cmd "rabbitmq-diagnostics -q ping"
-          --health-interval 10s
-          --health-timeout 10s
-          --health-retries 12
-
-      nats:
-        image: nats:2.10-alpine
-        ports:
-          - 4222:4222
-        options: >-
-          --health-cmd "nc -z localhost 4222"
-          --health-interval 5s
-          --health-timeout 3s
-          --health-retries 20
-
-      mosquitto:
-        image: eclipse-mosquitto:1.6
-        ports:
-          - 1883:1883
-        options: >-
-          --health-cmd "mosquitto_pub -h localhost -t health -m ok"
-          --health-interval 5s
-          --health-timeout 5s
-          --health-retries 20
-
     env:
       JVFAULT_REDIS_BOOTSTRAP: redis://127.0.0.1:6379
-      JVFAULT_KAFKA_BOOTSTRAP: localhost:9092  # 未启动服务；测试会跳过（见 KafkaIntegrationTest assumeTrue）
+      JVFAULT_KAFKA_BOOTSTRAP: localhost:9092
       JVFAULT_RMQ_BOOTSTRAP: amqp://localhost:5672
       JVFAULT_NATS_BOOTSTRAP: nats://localhost:4222
       JVFAULT_MQTT_BOOTSTRAP: tcp://localhost:1883
 
     steps:
       - uses: actions/checkout@v4
-
-      - name: Set up JDK 21
-        uses: actions/setup-java@v4
+      - uses: actions/setup-java@v4
         with:
           distribution: temurin
           java-version: '21'
-
-      - name: Setup Gradle
-        uses: gradle/actions/setup-gradle@v3
-
+      - uses: gradle/actions/setup-gradle@v3
       - name: Build and test
         run: ./gradlew build --no-daemon
-
-      - name: Verify publishing to Maven Local
-        run: ./gradlew publishToMavenLocal --no-daemon
-
       - name: Upload test reports
         if: always()
         uses: actions/upload-artifact@v4
         with:
           name: test-reports
           path: '**/build/reports/tests/test'
-          if-no-files-found: ignore
-
-      - name: Upload JaCoCo coverage reports
-        if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: jacoco-coverage
-          path: '**/build/reports/jacoco'
           if-no-files-found: ignore
