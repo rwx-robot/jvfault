@@ -13,11 +13,10 @@ jobs:
     runs-on: ubuntu-22.04
 
     env:
-      # 服务未起 —— 各 transport-* 集成测试假设 broker 不可达时跳过（assumeTrue）
-      JVFAULT_KAFKA_BOOTSTRAP: localhost:9092
-      JVFAULT_RMQ_BOOTSTRAP: amqp://localhost:5672
-      JVFAULT_NATS_BOOTSTRAP: nats://localhost:4222
-      JVFAULT_MQTT_BOOTSTRAP: tcp://localhost:1883
+      # 不设置 JVFAULT_*_BOOTSTRAP —— 让 transport-* 集成测试走 Docker 检测路径，
+      # 检测失败时 assumeTrue 跳过（避免 CI 上 @BeforeAll 抛错让整 class fail）。
+      # 在本地 + Docker 通道（broker 真起）下，测试正常跑过。
+      :
 
     steps:
       - uses: actions/checkout@v4
