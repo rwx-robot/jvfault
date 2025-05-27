@@ -15,8 +15,14 @@ import static org.junit.jupiter.api.Assertions.*;
 @DisplayName("PlainTextFormatter Tests")
 class PlainTextFormatterTest {
 
+    /**
+     * 毫秒级时间戳 + 时区偏移。
+     * <p>偏移部分必须同时接受 {@code Z}（UTC 下 {@code XXX} 的 ISO-8601 写法）与
+     * {@code ±HH:MM}/{@code ±HHMM} —— CI runner 默认 UTC，本机多为 UTC+8，
+     * 只写 {@code [+-]dd:?dd} 会让测试"本地过、CI 挂"。
+     */
     private static final Pattern TIMESTAMP_PATTERN =
-            Pattern.compile("\\d{4}-\\d{2}-\\d{2} \\d{2}:\\d{2}:\\d{2}\\.\\d{3}[+-]\\d{2}:?\\d{2}");
+            Pattern.compile("\\d{4}-\\d{2}-\\d{2} \\d{2}:\\d{2}:\\d{2}\\.\\d{3}(?:[+-]\\d{2}:?\\d{2}|Z)");
 
     @Test
     @DisplayName("应包含时间戳/级别/Logger/线程/消息各段")
