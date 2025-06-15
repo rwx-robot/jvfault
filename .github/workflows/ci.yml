@@ -7,18 +7,27 @@ on:
   pull_request:
     branches: [ main ]
 
+# 同一 ref 的多次运行互斥：新 push 取消同 ref 上仍在排队的旧 run
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
 
-# 临时：contents: write 用于把构建日志推到 ci-debug 分支（排查完即撤）
+# 收紧 GITHUB_TOKEN 权限（GitHub 建议默认 read-only + 显式声明写权限）
 permissions:
-  contents: write
+  contents: read
 
 jobs:
   build:
     runs-on: ubuntu-22.04
 
+    # 真实 broker：让传输集成测试连真服务，而不是靠 Docker 自行拉起容器。
+    # 已接入 redis / rabbitmq / nats / mosquitto；gRPC 走本机回环无需 service。
+    #
+    # Kafka 暂不在此列：KRaft 冷启动 10-30s，而 GitHub service 容器缺少可靠的
+    # health check 命令（kafka-broker-api-versions.sh 在就绪前会超时，被判定
+    # unhealthy 会让 'Initialize containers' 步直接失败）。
+    # KafkaIntegrationTest 在无 JVFAULT_KAFKA_BOOTSTRAP 且本地无镜像时会 clean skip；
+    # 其集成路径由本地 + Docker 通道覆盖。
     services:
       redis:
         image: redis:7.2-alpine
@@ -79,54 +88,9 @@ jobs:
         uses: gradle/actions/setup-gradle@v3
 
       - name: Build and test
-        id: build
-        run: |
-          set -o pipefail
-          ./gradlew build --no-daemon 2>&1 | tee /tmp/gradle.log
-
-      # ---- 临时调试：把日志推送到 ci-debug 分支（只读访问即可查看） ----
-      - name: Publish build log to ci-debug branch
-        if: always()
-        continue-on-error: true
-        run: |
-          set -x
-          echo "== failing test xml files =="
-          grep -rl 'failures="[1-9]\|errors="[1-9]' \
-            --include='TEST-*.xml' "${{ github.workspace }}" || true
-          echo "== failure messages =="
-          for f in $(grep -rl 'failures="[1-9]\|errors="[1-9]' \
-                       --include='TEST-*.xml' "${{ github.workspace }}" || true); do
-            echo "### $f"
-            sed -n 's/.*<\(failure\|error\) message="\([^"]*\)".*/  - \2/p' "$f" | head -30
-          done
-
-          mkdir -p /tmp/dbg && cd /tmp/dbg
-          git init -q
-          git remote add origin "https://x-access-token:${{ github.token }}@github.com/${{ github.repository }}.git"
-          git fetch -q --depth 1 origin main
-          git checkout -q -b ci-debug
-          mkdir -p ci-debug
-          {
-            echo "sha: ${{ github.sha }}"
-            echo "cwd jars:"
-            ls -1 "${{ github.workspace }}"/*/build/libs/jvfault-*[0-9].jar 2>/dev/null | wc -l
-            echo
-            echo "=========== failing tests ==========="
-            for f in $(grep -rl 'failures="[1-9]\|errors="[1-9]' \
-                         --include='TEST-*.xml' "${{ github.workspace }}" || true); do
-              echo "### $f"
-              sed -n 's/.*<\(failure\|error\) message="\([^"]*\)".*/  - \2/p' "$f" | head -30
-            done
-            echo
-            echo "=========== gradle log tail (250) ==========="
-            tail -n 250 /tmp/gradle.log
-          } > ci-debug/latest.txt
-          git add ci-debug/latest.txt
-          git -c user.email=ci@local -c user.name=ci commit -q -m "ci-debug: ${{ github.sha }}"
-          git push -q -f origin ci-debug && echo "PUSHED ci-debug"
+        run: ./gradlew build --no-daemon
 
       - name: Verify publishing to Maven Local
-        if: steps.build.conclusion == 'success'
         run: ./gradlew publishToMavenLocal --no-daemon
 
       - name: Upload test reports
