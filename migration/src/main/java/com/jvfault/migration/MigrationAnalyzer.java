@@ -1,0 +1,74 @@
+package com.jvfault.migration;
+
+import java.io.IOException;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.stream.Stream;
+
+/**
+ * 迁移分析器 —— 扫描源码目录，按规则表输出迁移建议报告。
+ *
+ * @since v1.0.0 (2026)
+ * @author jvfault team
+ */
+public class MigrationAnalyzer {
+
+    private final List<RewriteRule> rules;
+
+    public MigrationAnalyzer(List<RewriteRule> rules) {
+        this.rules = rules;
+    }
+
+    public static MigrationAnalyzer withDefaults() {
+        return new MigrationAnalyzer(RewriteRule.defaults());
+    }
+
+    /**
+     * 扫描 .java 源文件，产出迁移发现。
+     */
+    public List<Finding> analyze(Path sourceDir) throws IOException {
+        List<Finding> findings = new ArrayList<>();
+        try (Stream<Path> files = Files.walk(sourceDir)) {
+            files.filter(p -> p.toString().endsWith(".java")).forEach(file -> {
+                String content;
+                try {
+                    content = Files.readString(file);
+                } catch (IOException e) {
+                    return;
+                }
+                for (RewriteRule rule : rules) {
+                    String token = rule.from().contains("@")
+                            ? rule.from().substring(rule.from().indexOf('@')) : rule.from();
+                    if (content.contains(token)) {
+                        findings.add(new Finding(file.toString(), rule, token));
+                    }
+                }
+            });
+        }
+        return findings;
+    }
+
+    /**
+     * 生成 Markdown 迁移报告。
+     */
+    public String report(List<Finding> findings) {
+        StringBuilder sb = new StringBuilder("# jvfault 迁移报告\n\n");
+        sb.append("发现 ").append(findings.size()).append(" 处需要迁移：\n\n");
+        for (Finding f : findings) {
+            sb.append("- `").append(f.file()).append("` — ")
+                    .append(f.rule().from()).append(" → ")
+                    .append(f.rule().to());
+            if (!f.rule().note().isEmpty()) {
+                sb.append("（").append(f.rule().note()).append("）");
+            }
+            sb.append('\n');
+        }
+        return sb.toString();
+    }
+
+    /** 迁移发现 */
+    public record Finding(String file, RewriteRule rule, String matchedToken) {
+    }
+}

@@ -1,0 +1,82 @@
+@startuml
+!define RECTANGLE class
+
+skinparam backgroundColor #FFFFFF
+skinparam componentStyle rectangle
+skinparam rectangle {
+    BackgroundColor<<core>> #E8F5E9
+    BorderColor<<core>> #2E7D32
+    BackgroundColor<<annotation>> #E3F2FD
+    BorderColor<<annotation>> #1565C0
+    BackgroundColor<<spi>> #FFF3E0
+    BorderColor<<spi>> #EF6C00
+}
+
+package "jvfault-core v0.1.0 (2015)" <<core>> {
+
+    package "Annotations" <<annotation>> {
+        [@Component] as Component
+        [@Module] as Module
+        [@Inject] as Inject
+        [@Configuration] as Configuration
+        [@Bean] as Bean
+    }
+
+    package "Core Container" <<core>> {
+        [BeanRegistry] as BeanRegistry
+        [DefaultBeanRegistry] as DefaultBeanRegistry
+        [BeanDefinition] as BeanDefinition
+        [ModuleContainer] as ModuleContainer
+        [ModuleMetadata] as ModuleMetadata
+    }
+
+    package "Scanning" <<core>> {
+        [ModuleScanner] as ModuleScanner
+        [ClassFilter] as ClassFilter
+    }
+
+    package "Bootstrap" <<core>> {
+        [JvfaultApplication] as JvfaultApplication
+    }
+
+    package "SPI" <<spi>> {
+        (ModuleScanner) as ModuleScannerSPI
+    }
+}
+
+package "Example Application" {
+    [AppModule] as AppModule
+    [GreetingService] as GreetingService
+    [MessageProvider] as MessageProvider
+    [HelloMessageProvider] as HelloMessageProvider
+    [Application] as Application
+}
+
+' Relationships
+Application --> JvfaultApplication : creates
+JvfaultApplication --> ModuleContainer : creates
+ModuleContainer --> ModuleScanner : scans
+ModuleScanner --> ModuleScannerSPI : uses (optional)
+ModuleScanner --> ClassFilter : uses
+ModuleScanner ..> AppModule : discovers
+ModuleContainer ..> ModuleMetadata : builds
+ModuleMetadata --> Module : reads
+ModuleContainer --> BeanRegistry : delegates
+BeanRegistry <|-- DefaultBeanRegistry
+DefaultBeanRegistry --> BeanDefinition : manages
+BeanDefinition --> Component : reads
+DefaultBeanRegistry ..> GreetingService : instantiates
+DefaultBeanRegistry ..> HelloMessageProvider : instantiates
+GreetingService --> MessageProvider : injects
+HelloMessageProvider ..|> MessageProvider
+
+' Legend
+legend right
+    |= Color |= Meaning |
+    | <#E8F5E9> Green | Core Runtime |
+    | <#E3F2FD> Blue | Annotations |
+    | <#FFF3E0> Orange | SPI Extensions |
+    | White | User Code |
+endlegend
+
+@enduml

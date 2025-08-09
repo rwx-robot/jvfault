@@ -1,0 +1,11 @@
+app:
+  name: jvfault-demo
+  timeout: 30
+  tags:
+    - alpha
+    - beta
+  db:
+    url: jdbc:h2:mem:test
+    poolSize: 5
+server:
+  port: 8080
