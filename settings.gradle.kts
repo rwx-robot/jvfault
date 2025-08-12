@@ -21,8 +21,9 @@ listOf(
     "validation",
     "web",
     "config",
+    "platform-servlet",
     "tests"
 ).forEach { include(":$it") }
 
 // runnable examples
-    include(":examples:v0.3.0")
+    include(":examples:v0.4.0")
