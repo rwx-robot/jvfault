@@ -20,8 +20,9 @@ listOf(
     "exception",
     "validation",
     "web",
+    "config",
     "tests"
 ).forEach { include(":$it") }
 
 // runnable examples
-    include(":examples:v0.2.0")
+    include(":examples:v0.3.0")
