@@ -7,6 +7,39 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ---
 
+## [v1.0.7] - Kafka 纳入 CI：5 个 broker 全覆盖，18 个集成测试全实跑（2026-09-23）
+
+### Fixed
+- **ci**：Kafka 进不了 CI 的真因 —— `kafka-broker-api-versions.sh` **不在容器 PATH 上**，
+  位于 `/opt/kafka/bin/`。健康检查写裸命令 → `command not found` → 容器被判 unhealthy →
+  GitHub `Initialize containers` 步直接失败，整轮 CI 挂。
+  改为写全路径 `/opt/kafka/bin/kafka-broker-api-versions.sh`，
+  且 `--bootstrap-server` 用**容器内监听地址** `localhost:9092`（不是宿主机映射端口）。
+- **docs**：README 的 CI badge 是**静态假徽章**（`badge/CI-passing`），
+  CI 真红时仍显示 passing。改为 GitHub Actions 实时徽章
+  `.../actions/workflows/ci.yml/badge.svg?branch=main`。
+- **docs**：README 集成测试数误写 28，实为 **18**（6 个传输模块 × 3）；删除重复的 badge 块。
+
+### Added
+- **ci**：Kafka service 回归（redis / kafka / rabbitmq / nats / mosquitto 五个真实 broker）。
+  CI 上 **18 个传输集成测试全部真实执行，不再跳过**。
+- **docs**：README 补「本地复现 CI 环境」指引 —— CI runner 是 UTC、本地多为 UTC+8，
+  改完时间相关代码必须用 `TZ=UTC ./gradlew clean build --no-daemon --no-build-cache` 复验。
+- **docs**：能力表补 CI 行。
+
+### Changed
+- **build**：构件版本 `jvfaultVersion` 由 `1.0.6` 升到 `1.0.7`。
+
+### Verification
+- 本机同镜像同参数实测 Kafka 健康检查：`docker inspect` → `health=healthy`（约 10s）
+- `JVFAULT_KAFKA_BOOTSTRAP=localhost:9092 ./gradlew :transport-kafka:test`
+  → 3 tests 0 skipped 0 failures
+- **全量 CI 等价复现**（`TZ=UTC` + 5 broker + `--no-build-cache`）：
+  **269 tests 0 failures 0 errors 0 skipped**，其中传输集成 **18/18 全跑**
+- GitHub Actions 连续两轮 success
+
+---
+
 ## [v1.0.6] - CI 首次全绿（修复 4 类"只在干净环境暴露"的缺陷）（2026-09-23）
 
 > 本轮起 CI（GitHub Actions）连续为绿。此前所有失败都源于**只有干净环境才会触发**
