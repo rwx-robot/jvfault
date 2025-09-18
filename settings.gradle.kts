@@ -39,8 +39,8 @@ listOf(
     "tracing",
     "metrics",
     "virtualthreads",
+    "plugin",
+    "apt",
+    "aot",
     "tests"
 ).forEach { include(":$it") }
-
-// runnable examples
-    include(":examples:v0.8.0")
