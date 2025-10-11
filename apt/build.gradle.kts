@@ -7,6 +7,7 @@ dependencies {
     // 注解处理器只依赖 core 注解
     compileOnly(project(":core"))
 
+    testImplementation(project(":core"))
     testImplementation("org.junit.jupiter:junit-jupiter:5.10.2")
     testRuntimeOnly("org.junit.platform:junit-platform-launcher:1.10.2")
 }

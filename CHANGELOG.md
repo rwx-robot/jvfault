@@ -7,6 +7,26 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ---
 
+## [v1.0.1] - 示例闭环与集成测试真实性（2026-09-22）
+
+### Added
+- **examples**: 补齐 `v0.9.0`（plugin 生命周期 / apt 编译期元数据 / aot 反射注册）与 `v1.0.0`（security / compliance / migration / ops）两个可运行示例，版本示例闭环 12/12
+- **transport-kafka**: `KafkaIntegrationTest` 真实 broker 集成 3 例（request-reply、error 头回传、事件 publish），支持 CI service 与本地容器双通道
+- **ci**: GitHub Actions `services` 提供 redis 7.2 与 kafka 3.7（KRaft 单节点）；新增 `publishToMavenLocal` 校验步骤与测试报告上传
+- **apt**: 新增真实 javac 编译测试，验证 `META-INF/jvfault/modules.txt` 生成与处理器 SPI 注册
+
+### Fixed
+- **build**: 构件版本 `jvfaultVersion` 由 `0.1.0` 升到 `1.0.1` —— 此前发布的 40 个构件版本与 git tag / roadmap 完全脱节
+- **core**: `JvfaultApplication.getVersion()` 兜底值不再硬编码 `0.1.0`，改为读取构建期生成的 `META-INF/jvfault-build.properties`
+- **apt**: 补 `META-INF/services/javax.annotation.processing.Processor` 注册 —— 此前消费者挂 `annotationProcessor` 时处理器从未被 javac 发现
+- **transport-kafka**: `close()` 改由轮询线程关闭 `KafkaConsumer`（此前跨线程关闭抛 `ConcurrentModificationException`）
+- **transport-kafka**: 无任何订阅时 `bind()` 不再调用 `consumer.poll()`（此前抛 `IllegalStateException`）
+
+### Changed
+- README / HANDOVER 数据同步：39 个模块、12 个版本示例、250 测试；移除已删除的 distribution BOM 描述
+
+---
+
 ## [v1.0.0] - Production Ready（纪元 2026）
 
 ### Added
@@ -14,8 +34,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 - **ops**: `HealthIndicator`/`HealthAggregator`（liveness/readiness 探针语义）、`GracefulShutdown`
 - **compliance**: 只追加 JSONL `AuditTrail`、`DataMasker`（手机号/邮箱/通用掩码）
 - **migration**: Spring → jvfault 重写规则表、源码扫描器、Markdown 迁移报告
-- **distribution**: java-platform BOM 对齐全部构件版本
-- **example**: v1.0.0 生产就绪全家桶演示
+- **distribution**: java-platform BOM 对齐全部构件版本（后按 ADR-009 移除，改由 version catalog 对齐）
+- **example**: v1.0.0 生产就绪全家桶演示（示例工程于 v1.0.1 补齐）
 
 ### 备注
 - compliance/migration 为 2026 纪元模块，编译目标 JDK 17
