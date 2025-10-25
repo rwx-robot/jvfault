@@ -126,20 +126,21 @@ git push --force origin --tags
 - grpc **无需** service：服务端以 grpc-netty 绑定随机端口本机回环，集成测试直接连
 - 现状：7 个传输各 3 例真实集成测试（rabbitmq/nats/mosquitto/grpc 为 v1.0.2 新增），本地已实测全绿
 
-### 7.2 【中，需决策】JPMS
-**已完成（v1.0.2，Java 8 兼容的第一步）**：为 40 个主构件写入
-`Automatic-Module-Name: com.jvfault.<name>`（`-` 换 `.`），消费方在 module path 上可直接 `requires`。
-
-**module-info.java 存在硬冲突，需先决策**：
-- `module-info.java` 只能以 `--release 9+` 编译，而本项目全局 `options.release = 8`（ADR-002 基线）
-- ADR-003 曾**主动移除** module-info（"v0.x 阶段无 JPMS 需求"）
-- 框架重度反射（扫描 / IoC / AOP），命名模块需逐一 `opens`，否则 `InaccessibleObjectException`
-
-可选路径（择一）：
-1. **多版本 JAR（MR-JAR）**：main 仍 `--release 8`，另建 `src/main/java9/module-info.java` 以 9 编译，
-   打进 `META-INF/versions/9/`，manifest 置 `Multi-Release: true`。保留 Java 8 基线，成本较高。
-2. **放弃 Java 8 基线**（改 release 17）：最省事，但推翻 README / ADR 的核心卖点。
-3. **保持现状**：仅用 Automatic-Module-Name（已完成），不引入 module-info。
+### 7.2 【已完成 v1.0.3】JPMS 多版本 JAR（保留 Java 8 基线）
+- **v1.0.2 第一步**：40 个主构件写入 `Automatic-Module-Name: com.jvfault.<name>`（Java 8 侧可用）。
+- **决策**：`module-info.java` 只能以 `--release 9+` 编译，与全局 `options.release = 8`（ADR-002）
+  冲突，且 ADR-003 曾主动移除 module-info → **选定路径 ①：多版本 JAR（MR-JAR）**，保住 Java 8 基线。
+- **机制（v1.0.3）**：根 `build.gradle.kts` 一旦检测到 `src/main/java9/module-info.java`，即
+  以 `--release 9` **单独**编译该描述符（`--patch-module` 打补丁 + 依赖以 **JAR** 形态作 module path，
+  项目依赖经 `artifactView(LibraryElements.JAR)` 取 jar），产物置于 `META-INF/versions/9/`，
+  manifest 置 `Multi-Release: true`。**主代码仍 `--release 8`。**
+- **首批 4 个模块**：`com.jvfault.core` / `.exception` / `.logging` / `.metrics`
+  （`api` 依赖映射为 `requires transitive`；反射场景由**消费方** `opens ... to com.jvfault.core`）。
+- **验证**：主类字节码 major 52（Java 8）、描述符 major 53（Java 9）；
+  模块化消费者实机 `javac --module-path` 编译 + `java -m` 运行通过，
+  `requires com.jvfault.core` + `com.jvfault.exception` 均解析为命名模块，IoC 跨模块反射实例化 bean 正常。
+- **待办**：其余 ~35 个模块的 module-info 逐模块补齐（`platform-*` / `transport-*` / `web` / `security` …）；
+  建议补一个**常驻** module-path 回归测试（当前为临时消费者脚本验证）。
 
 ### 7.3 【中】Sonatype OSS 发布
 `publishToMavenLocal` 已实测 40 个构件全部发布。**进一步**：

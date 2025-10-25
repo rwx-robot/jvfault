@@ -7,7 +7,7 @@
 [![Gradle](https://img.shields.io/badge/Gradle-8.x-green.svg)](https://gradle.org/)
 [![Tests](https://img.shields.io/badge/tests-263%20passing-brightgreen.svg)](#构建与测试)
 [![License](https://img.shields.io/badge/license-Apache--2.0-blue.svg)](LICENSE)
-[![Version](https://img.shields.io/badge/release-v1.0.2-blue.svg)](#)
+[![Version](https://img.shields.io/badge/release-v1.0.3-blue.svg)](#)
 
 **jvfault** 是一个以 Java 标准库实现的模块化应用框架：IoC 容器 + 模块化系统为内核，
 上层覆盖 Web（Servlet/Reactive）、安全、合规、可观测性、微服务传输与 AI 接入。
@@ -19,6 +19,7 @@
 | 版本示例 | 12 个（v0.1.0 → v1.0.0 每版本一个可运行示例） |
 | 测试 | **263 个，0 失败 0 跳过** |
 | 传输适配 | tcp / grpc / kafka / redis / rmq / nats / mqtt（**全部真实集成**：broker 或 netty 回环） |
+| JPMS | `core` / `exception` / `logging` / `metrics` 提供多版本 JAR 的 `META-INF/versions/9/module-info`（Java 8 与 9+ 双向兼容） |
 | 构建 JVM | 必须用 JDK 21 作 Gradle JVM（`JAVA_HOME=$(/usr/libexec/java_home -v 21)`） |
 
 [![Java](https://img.shields.io/badge/Java-8%2B-orange.svg)](https://openjdk.org/)
