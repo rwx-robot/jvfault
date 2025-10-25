@@ -20,3 +20,11 @@ dependencies {
 tasks.withType<JavaCompile>().configureEach {
     options.release = 17
 }
+
+// 把框架版本与项目根路径注入测试运行时，避免 JpmsModulePathSmokeTest 把硬编码到 user.dir
+val frameworkVersion = project.findProperty("jvfaultVersion") as String? ?: "0.0.0"
+val projectRoot = rootProject.projectDir.absolutePath
+tasks.withType<Test>().configureEach {
+    systemProperty("jvfault.framework.version", frameworkVersion)
+    systemProperty("jvfault.project.root", projectRoot)
+}
