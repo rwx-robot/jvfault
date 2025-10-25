@@ -7,7 +7,26 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ---
 
-## [v1.0.3] - JPMS 多版本 JAR（保留 Java 8 基线）（2026-09-22）
+## [v1.0.4] - JPMS 全面覆盖（2026-09-23）
+
+### Added
+- **module-info**: 30 个新模块补 `src/main/java9/module-info.java`：
+  `aop` / `apt` / `cache` / `compliance` / `config` / `graphql` / `logging` / `mcp` /
+  `metrics` / `migration` / `microservices` / `ops` / `openapi` / `platform-reactive` /
+  `platform-servlet` / `plugin` / `rag` / `scheduling` / `security` / `sse` / `test` /
+  `tracing` / `transport-{tcp,grpc,kafka,redis,rmq,nats,mqtt}` / `validation` /
+  `virtualthreads` / `web` / `websocket` / `ai` — **合计 38 个 MR-JAR 模块**（剩余 2 个
+  `tests`/`examples` 为非业务构件，无 MR-JAR 必要）
+- **build/JPMS 改进**：根 `build.gradle.kts` 解析上游项目 jar 任务作为 module path（不依赖
+  classes 目录）、新增独立 `compileJava9ModulePath` configuration 仅用于解析三方 jar；
+  `:native` 模块名用硬编码特例（项目名是 Java 保留字）；`:security` 仅导出子包
+- **tests**: 新增 `JpmsModulePathSmokeTest`（4 例），常驻回归：
+  - MR-JAR 描述符完整（30 个核心模块 manifest + `META-INF/versions/9/module-info.class`）
+  - `JvfaultApplication.getVersion()` 在 classpath / module path 下都可读
+  - 当前测试 Module 标识可读（命名 / 未命名均可）
+
+### Changed
+- **build**: 构件版本 `jvfaultVersion` 由 `1.0.3` 升到 `1.0.4`
 
 ### Added
 - **build/JPMS**: 多版本 JAR（MR-JAR）机制 —— 根 `build.gradle.kts` 在模块提供
