@@ -38,8 +38,9 @@ listOf(
     "cache",
     "tracing",
     "metrics",
+    "virtualthreads",
     "tests"
 ).forEach { include(":$it") }
 
 // runnable examples
-    include(":examples:v0.7.0")
+    include(":examples:v0.8.0")
