@@ -7,6 +7,38 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ---
 
+## [v1.0.10] - ponytail 审计收口 + JDK 21 引用修正 + 测试总数重定基线（2026-09-24）
+
+### Removed
+- **删除 7 个历史版本示例模块** `examples/v0.1.0` ~ `v0.7.0`（ponytail `mass`）：
+  每个 3-15MB、展示价值最低，却让每次全量构建都跑一遍。保留 `v0.8.0`（最小，可作轻量参考）
+  与 `v0.9.0`~`v1.0.0`（含最新版完整演示）；**版本示例数 12 → 5**。
+- **删除 `MeterRegistry` 投机性接口**（ponytail `yagni`）：唯一实现为 `DefaultMeterRegistry`，
+  且所有调用方都直接引用实现类 —— 注释里"保留桥接可能"从未兑现。
+  接口删除后 `DefaultMeterRegistry` 降级为普通类（去掉 `implements` 与全部 `@Override`）。
+
+### Fixed
+- **JDK 21 引用修正**：README / 快速开始里的 `JAVA_HOME=$(/usr/libexec/java_home -v 21)`
+  在部分 macOS 上会**误解析到 Java 12**（`tests` 模块要求 `--release 17`，会报具有误导性的
+  switch 表达式 / record 编译错误）。现统一改为绝对路径
+  `/Library/Java/JavaVirtualMachines/jdk-21.0.11.jdk/Contents/Home`，并写明：
+  **构建用 JDK 21，产物仍以 `--release 8` 编译，运行时向下兼容 Java 8** —— 二者不矛盾。
+- **测试总数重定基线 274 → 281**：v1.0.9 新增 `ReadmeFactsConsistencyTest`（7 例）时漏算自身，
+  导致 README 写的 274 而真实已是 281。现按全量实际运行总数校正（badge / 维度表 / 快速开始三处）。
+  ⚠️ 测试总数是**唯一无法自我校验**的宣称（由 Gradle 产出，测试自身看不到），
+  已在 `ReadmeFactsConsistencyTest.EXPECTED_TEST_COUNT` 处写明「改测试必须跑全量并重算」。
+
+### Changed
+- `settings.gradle.kts`：示例清单移除 v0.1.0~v0.7.0（剩 5 个）。
+- `JpmsModulePathSmokeTest.verifyExamplesStructure()`：期望示例数 12 → 5。
+- `ReadmeFactsConsistencyTest`：示例数常量 12 → 5、测试总数 274 → 281。
+
+### 审计建议未采纳（附理由）
+- `LogEntry.Builder` 转 `record`：**不采纳** —— 主代码基线 `--release 8`，record 需 14+，
+  强行升级会破坏「向下兼容 Java 8」这条对外承诺；且该 builder 本身并非过度设计。
+- `DefaultMeterRegistry.toTags()` 改 stream：**不采纳** —— 现有循环已是 Java 8 下最简写法，
+  换成 `IntStream` 反而更啰嗦。
+
 ## [v1.0.9] - 文档宣称数字化为机器校验：README 数字漂移一次性堵死（2026-09-24）
 
 ### Fixed
