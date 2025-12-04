@@ -44,8 +44,11 @@ listOf(
     "aot",
     "native",
     "logging",
+    "ai",
+    "rag",
+    "mcp",
     "tests"
 ).forEach { include(":$it") }
 
 // runnable examples
-    include(":examples:v0.10.0")
+    include(":examples:v0.11.0")
