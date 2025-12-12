@@ -16,7 +16,7 @@ permissions:
 
 jobs:
   build:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-22.04
 
     # 临时只启用 redis 一个 service —— 排查哪个 service 让 'Initialize containers' 失败
     services:
