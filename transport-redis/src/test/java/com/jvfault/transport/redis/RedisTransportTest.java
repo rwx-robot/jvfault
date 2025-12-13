@@ -22,12 +22,19 @@ class RedisTransportTest {
 
     static DockerContainer redis;
     static String bootstrap;
-    static boolean dockerUp;
+    static boolean brokerUp;
 
     @BeforeAll
     static void startRedis() throws Exception {
-        dockerUp = DockerContainer.dockerAvailable();
-        if (!dockerUp) {
+        // CI/外部 broker 优先：JVFAULT_REDIS_BOOTSTRAP=redis://127.0.0.1:6379
+        String external = System.getenv("JVFAULT_REDIS_BOOTSTRAP");
+        if (external != null && !external.trim().isEmpty()) {
+            bootstrap = external.trim();
+            brokerUp = true;
+            return;
+        }
+        brokerUp = DockerContainer.dockerAvailable();
+        if (!brokerUp) {
             return;
         }
         DockerContainer.ensureImage("redis:7.2-alpine");
@@ -47,7 +54,7 @@ class RedisTransportTest {
     @Test
     @DisplayName("端到端 request-reply（psubscribe + replyChannel）")
     void testRequestReply() throws Exception {
-        org.junit.jupiter.api.Assumptions.assumeTrue(dockerUp, "需要 Docker");
+        org.junit.jupiter.api.Assumptions.assumeTrue(brokerUp, "需要 Redis broker（Docker 或 JVFAULT_REDIS_BOOTSTRAP）");
 
         RedisTransportServer server = new RedisTransportServer(new ConnectionConfig(bootstrap));
         server.subscribe("user.get.*", req -> {
@@ -69,7 +76,7 @@ class RedisTransportTest {
     @Test
     @DisplayName("handler 异常经 error 头回传")
     void testErrorPropagation() throws Exception {
-        org.junit.jupiter.api.Assumptions.assumeTrue(dockerUp, "需要 Docker");
+        org.junit.jupiter.api.Assumptions.assumeTrue(brokerUp, "需要 Redis broker（Docker 或 JVFAULT_REDIS_BOOTSTRAP）");
 
         RedisTransportServer server = new RedisTransportServer(new ConnectionConfig(bootstrap));
         server.subscribe("fail.always", req -> {

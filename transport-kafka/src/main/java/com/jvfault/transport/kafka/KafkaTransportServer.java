@@ -46,6 +46,7 @@ public class KafkaTransportServer extends AbstractTransport {
     private KafkaConsumer<String, String> consumer;
     private ExecutorService pollLoop;
     private final AtomicBoolean closed = new AtomicBoolean();
+    private volatile boolean consumerClosed;
 
     public KafkaTransportServer(ConnectionConfig config) {
         this.config = config;
@@ -77,8 +78,11 @@ public class KafkaTransportServer extends AbstractTransport {
             consumer.subscribe(handlers.keySet());
         }
         running = true;
-        // 触发分区分配与首次 poll（确保客户端 publish 时 partition 已就绪）
-        consumer.poll(Duration.ofMillis(500));
+        // 触发分区分配与首次 poll（确保客户端 publish 时 partition 已就绪）；
+        // 未订阅任何 topic 时 poll 会抛 IllegalStateException，故仅在有订阅时调用。
+        if (!handlers.isEmpty()) {
+            consumer.poll(Duration.ofMillis(500));
+        }
 
         pollLoop = Executors.newSingleThreadExecutor(r -> {
             Thread t = new Thread(r, "jvfault-kafka-consumer");
@@ -111,6 +115,16 @@ public class KafkaTransportServer extends AbstractTransport {
         } catch (Exception e) {
             if (!closed.get()) {
                 log.warn("Kafka consumer loop 异常: {}", e.getMessage());
+            }
+        } finally {
+            // KafkaConsumer 非线程安全：必须由轮询线程自己关闭，
+            // 否则调用方线程 close() 会抛 ConcurrentModificationException。
+            try {
+                consumer.close();
+            } catch (Exception ignored) {
+                // ignore
+            } finally {
+                consumerClosed = true;
             }
         }
     }
@@ -169,9 +183,20 @@ public class KafkaTransportServer extends AbstractTransport {
         running = false;
         closed.set(true);
         if (pollLoop != null) {
+            // wakeup 必须从别的线程调用才能让阻塞中的 poll 立即返回
+            if (consumer != null) {
+                consumer.wakeup();
+            }
             pollLoop.shutdownNow();
+            try {
+                if (!pollLoop.awaitTermination(5, java.util.concurrent.TimeUnit.SECONDS)) {
+                    log.warn("Kafka poll loop 未在 5s 内退出");
+                }
+            } catch (InterruptedException e) {
+                Thread.currentThread().interrupt();
+            }
         }
-        if (consumer != null) {
+        if (consumer != null && !consumerClosed) {
             consumer.wakeup();
             consumer.close();
         }
