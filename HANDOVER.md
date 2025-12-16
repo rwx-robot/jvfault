@@ -11,7 +11,7 @@
 `jvfault` 是一个注解驱动的模块化纯 Java 框架，**完整实现且全部测试通过**：
 - 39 个框架模块 + 12 个版本示例（v0.1.0 - v1.0.0 每版本一个）
 - 13 个 git commit（每个版本一个）+ 12 个 tag（v0.1.0 ~ v1.0.0 全含）
-- **251 测试 0 失败 0 跳过**（含 7 个 Jetty+JWT 端到端 + 3 个 Redis 真实 broker + 3 个 Kafka 真实 broker 集成）
+- **263 测试 0 失败 0 跳过**（含 7 个 Jetty+JWT 端到端 + 真实集成：3 redis + 3 kafka + 3 rabbitmq + 3 nats + 3 mqtt + 3 grpc）
 - 40 个构件已实测发布到本地 m2（`./gradlew publishToMavenLocal`）
 - 远程仓库：`git@github.com:rwx-robot/jvfault.git`（仅 main 分支，身份 johnnynode <johnnynode@gmail.com>）
 
@@ -25,6 +25,18 @@
 | kafka 真实集成 | 此前只有单元测试，未连过真 broker | 新增 `KafkaIntegrationTest`（3 例，真实容器/CI service 双通道） |
 | Kafka bug A | `close()` 从调用线程关 consumer，与 poll 线程冲突 → `ConcurrentModificationException` | 改由轮询线程关闭 consumer，`close()` 只 wakeup + 等待 |
 | Kafka bug B | 无订阅时 `bind()` 直接 `poll()` → `IllegalStateException` | 仅在有 handler 订阅时触发首次 poll |
+
+### 1.3 第三轮（2026-09-22 晚）传输层真实集成补全
+
+| 项 | 问题 | 处理 |
+|----|------|------|
+| rmq/nats/mqtt/grpc 占位 | 4 个传输仅「配置校验 + 惰性生命周期 + 客户端库适配骨架」，从未连过真服务 | 全部升级为**真实实现**并端到端验证 |
+| CI 覆盖面 | CI 只有 redis/kafka service | 加 rabbitmq / nats / mosquitto service 与 `JVFAULT_RMQ/NATS/MQTT_BOOTSTRAP`（grpc 走本机回环，无需 service） |
+| 版本同步 | 新增功能与构件版本脱节 | `jvfaultVersion` 1.0.1 → 1.0.2 |
+
+真实集成测试：`RabbitMQIntegrationTest` / `NATSIntegrationTest` / `MQTTIntegrationTest` / `GrpcIntegrationTest`
+各 3 例（request-reply、error 头回传、事件语义），本地实测 **12/12 全绿、0 跳过**（rabbitmq:3-management、
+nats-server 2.15.0、eclipse-mosquitto:1.6 真实 broker；grpc 走 grpc-netty 本机回环）。测试总数 251 → 263。
 
 ## 2. 工作区结构
 
@@ -125,21 +137,17 @@ JDK 17 模块（aot/native/ai/rag/mcp）已经验证 --release 17 编译正常�
 - 改 `build.gradle.kts` 的 PublishingExtension 配 `ossrh-staging-api`：发布到 `https://s01.oss.sonatype.org/service/local/staging/deploy/maven2/`
 - 等 staging 仓库中转后再 release 到 Maven Central
 
-### 7.4 【中】grpc InProcess 完整集成
-当前 grpc 走**单元测试**（3/3 全绿）。`InProcessServerBuilder` 在 `grpc-core` 而非 `grpc-api`，需加：
-```kotlin
-testImplementation("io.grpc:grpc-core:1.62.2")
-testImplementation("io.grpc:grpc-stub:1.62.2")
-testImplementation("io.grpc:grpc-netty-shaded:1.62.2")
-```
-**注意**：Maven Central 上 grpc-netty 体积较大（~6MB），CI 缓存可以解决。
+### 7.4 【已完成 v1.0.2】grpc 真实集成
+原计划 `InProcessServerBuilder`（需 grpc-core/grpc-stub/grpc-netty-shaded 且为测试依赖）。
+v1.0.2 采用**更贴近生产**的方案：`GrpcTransportServer` 用 `NettyServerBuilder` 绑定随机端口（本机回环），
+`GrpcTransportClient` 用 `NettyChannelBuilder` 连接；**不依赖 protobuf 代码生成** —— 以通用 unary
+`MethodDescriptor` + `byte[]` 直通编组承载 JSON wire。`GrpcIntegrationTest` 3 例真实回环全绿。
+新增依赖：`io.grpc:grpc-stub:1.62.2`、`io.grpc:grpc-netty:1.62.2`。
 
-### 7.5 【低】kafka/rmq/nats/mqtt 真实集成
-参考 redis 模式（`DockerContainer.java` + `assumeTrue(dockerUp)`）补完 4 个传输：
-- `apache/kafka:3.7.0`
-- `rabbitmq:3-management`
-- `nats:2.10-alpine`
-- `eclipse-mosquitto:2.0`
+### 7.5 【已完成 v1.0.2】kafka/rmq/nats/mqtt 真实集成
+4 个传输均已补真实实现 + `DockerContainer` + 集成测试：
+- kafka（v1.0.1）`apache/kafka:3.7.0`；rmq `rabbitmq:3-management`；nats `nats:2.10-alpine`（或任意 nats-server）；mqtt `eclipse-mosquitto:1.6`（1.6 默认允许匿名远程连接；2.x 需挂载配置放开 listener）
+- 地址优先级：`JVFAULT_*_BOOTSTRAP` 环境变量 → 本地 Docker 容器 → 跳过（不影响构建绿）
 
 ### 7.6 【低】Javadoc + 站点
 `./gradlew javadoc` 能产出 javadoc；可加 `asciidoctor` plugin 产出完整站点（受网络限流时先在 CI 跑）。
@@ -156,10 +164,10 @@ v1.0.0 后可做 `jvfault-spring-boot-starter`（自动配置、@SpringBootAppli
    cd /Users/Wang/Code/webfault-lib/jvfault-all/jvfault
    JAVA_HOME=$(/usr/libexec/java_home -v 21) ./gradlew clean build
    ```
-   期望 329 tasks BUILD SUCCESSFUL，245 tests 0 failed。
-2. **配置 CI 镜像**（一次性工作，让后续 245 个测试在 CI 中跑全链路真实集成）：
-   - 在 `.github/workflows/ci.yml` 加 `services:` 段启动 redis/kafka/rmq/nats/mqtt/grpc-stub
-3. **推进 v1.0.0 → v1.1.0** 的下一个特性：建议**`jvfault-spring-boot-starter`**（Spring 桥接，最大化 Java 生态覆盖）。
+   期望 BUILD SUCCESSFUL，263 tests 0 failed（无 broker 时集成测试自动跳过，构建仍绿）。
+2. **CI 镜像**（已完成 v1.0.2）：`.github/workflows/ci.yml` 已加
+   redis / kafka / rabbitmq / nats / mosquitto service 与 `JVFAULT_*_BOOTSTRAP`；grpc 走本机回环无需 service。
+3. **推进 v1.0.2 → v1.1.0** 的下一个特性：建议**`jvfault-spring-boot-starter`**（Spring 桥接，最大化 Java 生态覆盖）。
 
 ## 9. 联系方式
 

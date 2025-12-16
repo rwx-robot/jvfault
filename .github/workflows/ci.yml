@@ -11,7 +11,7 @@ jobs:
     runs-on: ubuntu-latest
 
     # 真实 broker：让传输集成测试连真服务，而不是靠 Docker 自行拉起容器。
-    # 后续接入 kafka / rabbitmq / nats / mosquitto 时在此补充 service 与 env 即可。
+    # 已接入 redis / kafka / rabbitmq / nats / mosquitto；gRPC 走本机回环无需 service。
     services:
       redis:
         image: redis:7.2-alpine
@@ -40,9 +40,42 @@ jobs:
           KAFKA_TRANSACTION_STATE_LOG_MIN_ISR: 1
           KAFKA_GROUP_INITIAL_REBALANCE_DELAY_MS: 0
 
+      rabbitmq:
+        image: rabbitmq:3-management
+        ports:
+          - 5672:5672
+        options: >-
+          --health-cmd "rabbitmq-diagnostics -q ping"
+          --health-interval 10s
+          --health-timeout 10s
+          --health-retries 12
+
+      nats:
+        image: nats:2.10-alpine
+        ports:
+          - 4222:4222
+        options: >-
+          --health-cmd "nc -z localhost 4222"
+          --health-interval 5s
+          --health-timeout 3s
+          --health-retries 20
+
+      mosquitto:
+        image: eclipse-mosquitto:1.6
+        ports:
+          - 1883:1883
+        options: >-
+          --health-cmd "mosquitto_pub -h localhost -t health -m ok"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 20
+
     env:
       JVFAULT_REDIS_BOOTSTRAP: redis://127.0.0.1:6379
       JVFAULT_KAFKA_BOOTSTRAP: localhost:9092
+      JVFAULT_RMQ_BOOTSTRAP: amqp://localhost:5672
+      JVFAULT_NATS_BOOTSTRAP: nats://localhost:4222
+      JVFAULT_MQTT_BOOTSTRAP: tcp://localhost:1883
 
     steps:
       - uses: actions/checkout@v4
