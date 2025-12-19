@@ -7,7 +7,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ---
 
-## [v1.0.2] - 传输层真实集成补全（2026-09-22）
+## [v1.0.2] - 传输层真实集成补全 + JPMS 第一步（2026-09-22）
 
 ### Added
 - **transport-rmq**: RabbitMQ 真实实现（amqp-client 5.20.0）—— topic exchange 按 pattern 绑定、
@@ -21,6 +21,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
   直通编组（无需 protobuf 代码生成）；新增 `GrpcWire`/`GrpcMethod`、`GrpcIntegrationTest`（3 例，netty 本机回环）
 - **ci**: 新增 rabbitmq / nats / mosquitto 三个 `services`，以及
   `JVFAULT_RMQ_BOOTSTRAP` / `JVFAULT_NATS_BOOTSTRAP` / `JVFAULT_MQTT_BOOTSTRAP` 环境变量
+- **build/JPMS**: 40 个主构件写入 `Automatic-Module-Name: com.jvfault.<name>`（Java 8 兼容的
+  JPMS 第一步）；`module-info.java` 与 `--release 8` 基线冲突，留待多版本 JAR 决策
 
 ### Changed
 - **transport**: rmq / nats / mqtt / grpc 由「配置校验 + 惰性生命周期 + 客户端库适配骨架」升级为
