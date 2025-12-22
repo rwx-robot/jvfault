@@ -7,6 +7,28 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ---
 
+## [v1.0.3] - JPMS 多版本 JAR（保留 Java 8 基线）（2026-09-22）
+
+### Added
+- **build/JPMS**: 多版本 JAR（MR-JAR）机制 —— 根 `build.gradle.kts` 在模块提供
+  `src/main/java9/module-info.java` 时，以 `--release 9` **单独**编译该描述符
+  （`--patch-module` 打补丁 + 依赖以 JAR 形态作为 module path），产物放入
+  `META-INF/versions/9/` 并置 `Multi-Release: true`；**主代码仍以 `--release 8` 编译**
+- **module-info**: 首批 4 个模块 —— `com.jvfault.core` / `.exception` / `.logging` / `.metrics`；
+  `api` 依赖映射为 `requires transitive`，项目依赖以 JAR 上 module path
+
+### 说明
+- 同一构件**双向兼容**：Java 8 走 `Automatic-Module-Name`，Java 9+ 走
+  `META-INF/versions/9/module-info.class`
+- 已用**模块化消费者**实测：`requires com.jvfault.core` + `com.jvfault.exception` 的独立模块
+  可在 module path 上编译并运行，IoC 容器跨模块反射实例化 `@Component` 正常
+- 主类字节码 major 52（Java 8），描述符 major 53（Java 9）
+
+### Changed
+- **build**: 构件版本 `jvfaultVersion` 由 `1.0.2` 升到 `1.0.3`
+
+---
+
 ## [v1.0.2] - 传输层真实集成补全 + JPMS 第一步（2026-09-22）
 
 ### Added
