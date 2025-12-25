@@ -7,7 +7,7 @@
 [![Gradle](https://img.shields.io/badge/Gradle-8.x-green.svg)](https://gradle.org/)
 [![Tests](https://img.shields.io/badge/tests-263%20passing-brightgreen.svg)](#构建与测试)
 [![License](https://img.shields.io/badge/license-Apache--2.0-blue.svg)](LICENSE)
-[![Version](https://img.shields.io/badge/release-v1.0.4-blue.svg)](#)
+[![Version](https://img.shields.io/badge/release-v1.0.5-blue.svg)](#)
 
 **jvfault** 是一个以 Java 标准库实现的模块化应用框架：IoC 容器 + 模块化系统为内核，
 上层覆盖 Web（Servlet/Reactive）、安全、合规、可观测性、微服务传输与 AI 接入。

@@ -7,6 +7,32 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ---
 
+## [v1.0.5] - JPMS 回归测试加固（消除静默失败）（2026-09-23）
+
+### Fixed
+- **tests**: `JpmsModulePathSmokeTest` 三个静默失败
+  - **版本硬编码 1.0.3**：通过 `tests/build.gradle.kts` 注入 `-Djvfault.framework.version`
+    系统属性，避免在 1.0.4+ 上静默跳过所有 jar 校验
+  - **模块列表硬编码**：改为 `Files.newDirectoryStream(<root>)` 自动发现所有
+    `src/main/java9/module-info.java`，新增模块自动纳入
+  - **jar 缺失静默跳过**：改为失败累加器，缺失则 fail
+- **tests**: 新增 `verifyModuleNameInSource` —— 源码层校验
+  `module-info.java` 里的 `module com.jvfault.X` 与项目自动模块名一致
+  （捕获 `:native` 项目名是保留字之类的静默错误）
+- **tests**: 新增 `verifyExamplesStructure` —— 校验 12 个 examples/v* 目录
+  + 每个含 `Application.java`（防止 examples 目录被切走仍声称 12/12 绿）
+- **build**: `tests/build.gradle.kts` 通过 `rootProject.projectDir.absolutePath`
+  注入 `-Djvfault.project.root`，解决 `:tests:test` 的 `user.dir` 是 tests 模块目录
+  而非项目根的问题
+
+### Added
+- **tests**: 常驻 JPMS 回归 6 例（267 → 269 测试）
+
+### Changed
+- **build**: 构件版本 `jvfaultVersion` 由 `1.0.4` 升到 `1.0.5`
+
+---
+
 ## [v1.0.4] - JPMS 全面覆盖（2026-09-23）
 
 ### Added
