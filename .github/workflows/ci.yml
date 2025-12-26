@@ -7,31 +7,13 @@ on:
   pull_request:
     branches: [ main ]
 
-concurrency:
-  group: ${{ github.workflow }}-${{ github.ref }}
-  cancel-in-progress: true
-
-permissions:
-  contents: read
-
+# 简化版 CI（排查中）：无 concurrency、无 permissions 收紧、无 service
 jobs:
   build:
     runs-on: ubuntu-22.04
 
-    # 临时只启用 redis 一个 service —— 排查哪个 service 让 'Initialize containers' 失败
-    services:
-      redis:
-        image: redis:7.2-alpine
-        ports:
-          - 6379:6379
-        options: >-
-          --health-cmd "redis-cli ping"
-          --health-interval 5s
-          --health-timeout 3s
-          --health-retries 20
-
     env:
-      JVFAULT_REDIS_BOOTSTRAP: redis://127.0.0.1:6379
+      # 服务未起 —— 各 transport-* 集成测试假设 broker 不可达时跳过（assumeTrue）
       JVFAULT_KAFKA_BOOTSTRAP: localhost:9092
       JVFAULT_RMQ_BOOTSTRAP: amqp://localhost:5672
       JVFAULT_NATS_BOOTSTRAP: nats://localhost:4222
@@ -44,8 +26,10 @@ jobs:
           distribution: temurin
           java-version: '21'
       - uses: gradle/actions/setup-gradle@v3
-      - name: Build and test
+      - name: Build and test (no service containers)
         run: ./gradlew build --no-daemon
+      - name: Verify publishing to Maven Local
+        run: ./gradlew publishToMavenLocal --no-daemon
       - name: Upload test reports
         if: always()
         uses: actions/upload-artifact@v4
