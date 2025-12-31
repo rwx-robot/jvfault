@@ -3,8 +3,18 @@ name: CI
 on:
   push:
     branches: [ main ]
+    tags: [ 'v*' ]
   pull_request:
     branches: [ main ]
+
+# 同一 ref 的多次运行互斥：新 push 取消同 ref 上仍在排队的旧 run
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+# 收紧 GITHUB_TOKEN 权限（GitHub 建议默认 read-only + 显式声明写权限）
+permissions:
+  contents: read
 
 jobs:
   build:
