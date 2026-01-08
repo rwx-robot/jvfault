@@ -6,10 +6,10 @@
 
 [![Java](https://img.shields.io/badge/Java-8%2B-orange.svg)](https://openjdk.org/)
 [![Gradle](https://img.shields.io/badge/Gradle-8.x-green.svg)](https://gradle.org/)
-[![Tests](https://img.shields.io/badge/tests-281%20passing-brightgreen.svg)](#构建与测试)
+[![Tests](https://img.shields.io/badge/tests-283%20passing-brightgreen.svg)](#构建与测试)
 [![CI](https://github.com/rwx-robot/jvfault/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/rwx-robot/jvfault/actions/workflows/ci.yml)
 [![License](https://img.shields.io/badge/license-Apache--2.0-blue.svg)](LICENSE)
-[![Version](https://img.shields.io/badge/release-v1.0.8-blue.svg)](#)
+[![Version](https://img.shields.io/badge/release-v1.0.11-blue.svg)](#)
 
 **jvfault** 是一个以 Java 标准库实现的模块化应用框架：IoC 容器 + 模块化系统为内核，
 上层覆盖 Web（Servlet/Reactive）、安全、合规、可观测性、微服务传输与 AI 接入。
@@ -17,9 +17,9 @@
 
 | 维度 | 现状 |
 |------|------|
-| 模块 | 39 个（**全部 39 个均含测试**） |
+| 模块 | 40 个（**全部 40 个均含测试**） |
 | 版本示例 | 5 个（v0.8.0 → v1.0.0 每版本一个可运行示例） |
-| 测试 | **281 个，0 失败**（含 6 例 JPMS 多版本 JAR 回归；无 broker 环境下部分集成测试跳过，CI 全绿） |
+| 测试 | **283 个，0 失败**（含 6 例 JPMS 多版本 JAR 回归；无 broker 环境下部分集成测试跳过，CI 全绿） |
 | 传输适配 | tcp / grpc / kafka / redis / rmq / nats / mqtt（**全部真实集成**：broker 或 netty 回环） |
 | JPMS | **38 个模块** 提供多版本 JAR 的 `META-INF/versions/9/module-info.class`（Java 8 与 9+ 双向兼容） |
 | 构建 JVM | 必须用 JDK 21 作 Gradle JVM（`JAVA_HOME=/Library/Java/JavaVirtualMachines/jdk-21.0.11.jdk/Contents/Home`） |
@@ -28,7 +28,7 @@
 ## 快速开始
 
 ```bash
-# 构建全部 39 个模块 + 5 个版本示例（39 个模块均含测试，共 281 个测试）
+# 构建全部 40 个模块 + 5 个版本示例（40 个模块均含测试，共 283 个测试）
 JAVA_HOME=/Library/Java/JavaVirtualMachines/jdk-21.0.11.jdk/Contents/Home ./gradlew build
 
 # 单模块
@@ -81,6 +81,7 @@ ai/rag/mcp              ChatModel SPI、向量检索、MCP 服务器            
 compliance/migration    合规审计脱敏、迁移分析                               (JDK 17)
 ops                     健康检查、指标端点、优雅关闭                          (JDK 8)
 virtualthreads          虚拟线程执行器与结构化并发                            (JDK 21)
+spring-boot-starter      Spring Boot 3 自动配置桥接（可选插件，不传递 Spring 依赖）   (JDK 21)
 test        JUnit 5 扩展 (@TestModule + @Autowired)
 tests       跨模块端到端套件（Jetty + JWT）
 ```
@@ -96,15 +97,16 @@ tests       跨模块端到端套件（Jetty + JWT）
 | **9** | 仅 `module-info.java` 编译层（产物落在 MR-JAR 的 `META-INF/versions/9/`） | `build.gradle.kts:88`，JPMS 描述符自 JDK 9 起可用 |
 | **17** | `ai`、`rag`、`mcp`、`compliance`、`migration` | 各自 `build.gradle.kts` 覆盖为 `options.release = 17` |
 | **21** | `virtualthreads` | 依赖 Project Loom 虚拟线程 API，无法降级 |
+| **21** | `spring-boot-starter` | 依赖 Spring Boot 3（要求 17+），当前按 JDK 21 编译 |
 | **21** | `examples/v0.8.0`（示例，不发布） | 依赖 `virtualthreads` |
 | **17** | `tests`（测试套件，不发布） | JUnit 5 链式断言需要 |
 
 ### 运行时实测（2026-09-24 · Temurin `1.8.0_504`）
 
-把 37 个已发布 jar 丢到**真正的 Java 8 JVM** 上逐个加载，结论：
+把 38 个已发布 jar 丢到**真正的 Java 8 JVM** 上逐个加载，结论：
 
 - **31 个 jar 全部通过** —— `core`/`web`/`security`/`transport-*`/`logging` 等在 Java 8 上真正可用 ✅
-- **6 个 jar 抛 `UnsupportedClassVersionError`** —— 就是上面 release ≥ 17 的那 6 个模块
+- **7 个 jar 抛 `UnsupportedClassVersionError`** —— 就是上面 release ≥ 17 的那 7 个模块（含 `spring-boot-starter`）
 
 这是**预期行为，不是缺陷**：虚拟线程和 `java.net.http.HttpClient` 这类 API 在 Java 8 上本就不存在。
 **选型时请注意**：若你的运行时是 Java 8，**不要引入** `ai`/`rag`/`mcp`/`compliance`/`migration`/`virtualthreads`，
