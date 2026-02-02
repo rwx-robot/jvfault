@@ -160,9 +160,15 @@ class JpmsModulePathSmokeTest {
     @DisplayName("构件：MR-JAR descriptor 完整（AMN + Multi-Release + versions/9）")
     void verifyMrJarDescriptors() throws IOException {
         String version = frameworkVersion();
+        Set<Path> moduleInfos = discoverModuleInfoFiles();
+        // 防御：发现为 0 说明 moduleRoot() 解析错了（过去踩过 user.dir 陷阱），
+        // 这会让后面的循环空转 → 测试"假绿"。明确 fail 而不是静默通过。
+        assertFalse(moduleInfos.isEmpty(),
+                "未发现任何 src/main/java9/module-info.java；moduleRoot()=" + moduleRoot()
+                        + "（检查 -Djvfault.project.root 或 MR_JAR_DIR）");
         Set<String> missingJars = new LinkedHashSet<>();
         Set<String> incomplete = new LinkedHashSet<>();
-        for (Path mi : discoverModuleInfoFiles()) {
+        for (Path mi : moduleInfos) {
             String moduleName = moduleNameFromPath(mi);
             Path jar = moduleRoot().resolve(moduleName).resolve("build/libs")
                     .resolve("jvfault-" + moduleName + "-" + version + ".jar");
@@ -182,14 +188,15 @@ class JpmsModulePathSmokeTest {
             }
         }
         StringBuilder msg = new StringBuilder();
+        msg.append("共检查 ").append(moduleInfos.size()).append(" 个模块。");
         if (!missingJars.isEmpty()) {
-            msg.append("\n缺失 jar（建议先跑 `./gradlew clean build publishToMavenLocal`）：\n");
+            msg.append("\n缺失 jar（确认 :tests:test 已依赖全量 jar 任务）：\n");
             for (String s : missingJars) msg.append("  - ").append(s).append('\n');
         }
         if (!incomplete.isEmpty()) {
             msg.append("\n描述符不完整：").append(incomplete);
         }
-        if (msg.length() > 0) fail(msg.toString());
+        if (!missingJars.isEmpty() || !incomplete.isEmpty()) fail(msg.toString());
     }
 
     /**
