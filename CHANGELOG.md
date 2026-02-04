@@ -7,6 +7,43 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ---
 
+## [v1.0.8] - 「Java 8 基线」文档与实现不符：6 个模块实际需 JDK 17/21（2026-09-24）
+
+### Fixed
+- **docs（宣称与运行时不符）**：README 长期宣称「基线 JDK 8」，但实测有 **6 个已发布模块**
+  并不兼容 Java 8 —— 它们在各自 `build.gradle.kts` 里覆盖了 `options.release`：
+
+  | 模块 | 实际 release | 原来 README 怎么标 |
+  |------|:------------:|--------------------|
+  | `ai`、`rag`、`mcp` | 17 | ✅ 标了 `(JDK 17)` |
+  | `compliance`、`migration` | 17 | ❌ **漏标** |
+  | `virtualthreads` | 21 | ❌ **完全没标** |
+
+  用户按 README 选型，把 `virtualthreads` 拉进 Java 8 运行时会直接
+  `UnsupportedClassVersionError`。现已补上完整标注。
+
+### Added
+- **README「JDK 需求分层」章节**：完整列出 8 / 9（仅 module-info 编译层）/ 17 / 21 四档，
+  每档指明依据（`build.gradle.kts` 行号）。并写明**运行时实测结论**：
+  37 个已发布 jar 在真 Java 8 上 31 个通过、6 个抛错（预期行为，非缺陷）。
+- **`BuildBaselineConsistencyTest`**（tests 模块，3 个回归测试）——
+  把「JDK 分层」这个隐性契约固化成机器可校验的规则，三重防护：
+  1. 各模块实际 `options.release` 与期望表一致（偷偷升降基线即失败）
+  2. 所有 release > 8 的**已发布**模块必须在 README 清单里标 `(JDK n)`（防止再次漏标）
+  3. README 分层表与实际 release 双向吻合（含反向校验）
+
+  这是**故意设的摩擦**：改动基线时必须同步 `EXPECTED` 表 + README 两处，避免只改一边。
+- **`scripts/java8-runtime-smoke/`**：可复现的 Java 8 运行时验证脚本。
+  自动下载 Temurin 8 JRE、编译冒烟程序（`--release 8`）、把全部 jar 丢到真 Java 8 上加载。
+  运行：`./scripts/java8-runtime-smoke/run.sh`
+
+### 备注
+- 冒烟的已知限制：`platform-reactive`/`openapi`/`native`/`aot`/`graphql`/`sse`
+  依赖 Spring、WebFlux 等三方库，脚本 classpath 只有 jvfault + slf4j，
+  因此这些模块**未被严格验证**（脚本已把依赖缺失错误排除在「Java 8 不兼容」之外）。
+
+---
+
 ## [v1.0.7] - Kafka 纳入 CI：5 个 broker 全覆盖，18 个集成测试全实跑（2026-09-23）
 
 ### Fixed
