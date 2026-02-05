@@ -7,30 +7,88 @@ on:
   pull_request:
     branches: [ main ]
 
+# 同一 ref 的多次运行互斥：新 push 取消同 ref 上仍在排队的旧 run
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
 
+# 收紧 GITHUB_TOKEN 权限（GitHub 建议默认 read-only + 显式声明写权限）
 permissions:
   contents: read
 
 jobs:
   build:
     runs-on: ubuntu-22.04
-    # 简化版 CI：无 service（GitHub Actions runner 拉镜像不可靠）
-    # —— transport-* 集成测试因无 broker 自动 skip（assumeTrue），
-    # 其他 269 个测试不受影响。
+
+    # 真实 broker：让传输集成测试连真服务，而不是靠 Docker 自行拉起容器。
+    # redis / rabbitmq / nats / mosquitto 配 health check；gRPC 走本机回环无需 service。
+    # Kafka：KRaft 冷启动 10-30s，GitHub 'Initialize containers' 在没就绪时易被判
+    # unhealthy → 暂不启用；KafkaIntegrationTest 在本地 + Docker 通道已验证。
+    services:
+      redis:
+        image: redis:7.2-alpine
+        ports:
+          - 6379:6379
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 5s
+          --health-timeout 3s
+          --health-retries 20
+
+      rabbitmq:
+        image: rabbitmq:3-management
+        ports:
+          - 5672:5672
+        options: >-
+          --health-cmd "rabbitmq-diagnostics -q ping"
+          --health-interval 10s
+          --health-timeout 10s
+          --health-retries 12
+
+      nats:
+        image: nats:2.10-alpine
+        ports:
+          - 4222:4222
+        options: >-
+          --health-cmd "nc -z localhost 4222"
+          --health-interval 5s
+          --health-timeout 3s
+          --health-retries 20
+
+      mosquitto:
+        image: eclipse-mosquitto:1.6
+        ports:
+          - 1883:1883
+        options: >-
+          --health-cmd "mosquitto_pub -h localhost -t health -m ok"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 20
+
+    env:
+      JVFAULT_REDIS_BOOTSTRAP: redis://127.0.0.1:6379
+      JVFAULT_RMQ_BOOTSTRAP: amqp://localhost:5672
+      JVFAULT_NATS_BOOTSTRAP: nats://localhost:4222
+      JVFAULT_MQTT_BOOTSTRAP: tcp://localhost:1883
+
     steps:
       - uses: actions/checkout@v4
-      - uses: actions/setup-java@v4
+
+      - name: Set up JDK 21
+        uses: actions/setup-java@v4
         with:
           distribution: temurin
           java-version: '21'
-      - uses: gradle/actions/setup-gradle@v3
+
+      - name: Setup Gradle
+        uses: gradle/actions/setup-gradle@v3
+
       - name: Build and test
         run: ./gradlew build --no-daemon
+
       - name: Verify publishing to Maven Local
         run: ./gradlew publishToMavenLocal --no-daemon
+
       - name: Upload test reports
         if: always()
         uses: actions/upload-artifact@v4
@@ -38,6 +96,7 @@ jobs:
           name: test-reports
           path: '**/build/reports/tests/test'
           if-no-files-found: ignore
+
       - name: Upload JaCoCo coverage reports
         if: always()
         uses: actions/upload-artifact@v4
