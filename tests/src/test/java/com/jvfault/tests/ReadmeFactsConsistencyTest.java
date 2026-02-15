@@ -56,7 +56,7 @@ class ReadmeFactsConsistencyTest {
      * <b>新增/删除任何测试后必须</b>：跑全量 {@code ./gradlew test}，核对真实总数，再更新本常量与 README。
      * （v1.0.9 曾漏掉这步 —— 加了 7 个测试却仍写 274，导致 README 静默漂移；v1.0.10 修正为 281。）
      */
-    private static final int EXPECTED_TEST_COUNT = 285;
+    private static final int EXPECTED_TEST_COUNT = 287;
 
     /** 默认 baseline —— 根 build.gradle.kts 的 options.release。 */
     private static final int DEFAULT_RELEASE = 8;
@@ -393,5 +393,66 @@ class ReadmeFactsConsistencyTest {
         assertTrue(claim.find(), "README 里找不到「含 N 例 JPMS」的宣称");
         assertEquals(actual, Integer.valueOf(claim.group(1)),
                 "README 的 JPMS 回归例数与实际不符（实际 " + actual + " 个 @Test）");
+    }
+
+    /**
+     * README 里「N 个 broker」↔ {@code ci.yml} 里真实 service 的个数。
+     * 两边都从源码派生，无需常量 —— CI 加减 broker 却没改文档时这里会红。
+     */
+    @Test
+    @DisplayName("CI：README「N 个 broker」== ci.yml 里 service 的实际个数")
+    void ciBrokerCountMatchesReadme() throws IOException {
+        List<String> ci = ciWorkflowLines();
+        int actual = 0;
+        for (String line : ci) {
+            if (line.trim().startsWith("image:")) {
+                actual++;
+            }
+        }
+        assertTrue(actual > 0, "ci.yml 里没数到任何 service image");
+
+        String readme = String.join("\n", readmeLines());
+        Matcher claim = Pattern.compile("(\\d+)\\s*个\\s*(?:真实\\s*)?broker").matcher(readme);
+        assertTrue(claim.find(), "README 里找不到「N 个 broker」的宣称");
+        assertEquals(actual, Integer.valueOf(claim.group(1)),
+                "README 的 broker 数与 ci.yml 的 service 数不符（ci.yml 实际 " + actual + " 个）");
+    }
+
+    /**
+     * CI 的 JDK 必须<b>覆盖</b>所有模块里最高的 {@code options.release}。
+     *
+     * <p>这是「构建用 JDK 21、产物仍 --release 8」这条承诺能成立的前提：
+     * 若某天新增了 release 25 的模块而 CI 还是 21，构建会直接失败。
+     * 同样两边派生、无需常量。
+     */
+    @Test
+    @DisplayName("CI：JDK 版本必须覆盖所有模块中最高的 options.release")
+    void ciJdkCoversHighestRelease() throws IOException {
+        int ciJava = -1;
+        for (String line : ciWorkflowLines()) {
+            Matcher m = Pattern.compile("java-version:\\s*['\"]?(\\d+)").matcher(line);
+            if (m.find()) {
+                ciJava = Integer.parseInt(m.group(1));
+                break;
+            }
+        }
+        assertTrue(ciJava > 0, "ci.yml 里没找到 java-version");
+
+        int maxRelease = 0;
+        for (Integer r : scanActualRelease().values()) {
+            maxRelease = Math.max(maxRelease, r);
+        }
+        assertTrue(maxRelease > 0, "没扫描到任何 options.release");
+
+        assertTrue(ciJava >= maxRelease,
+                "CI 的 JDK " + ciJava + " 低于模块里最高的 options.release " + maxRelease
+                        + " —— 构建会失败，请升级 ci.yml 的 java-version");
+    }
+
+    /** 读取 CI 工作流（不存在就直接失败，避免「悄悄跳过检查」）。 */
+    private List<String> ciWorkflowLines() throws IOException {
+        Path ci = projectRoot().resolve(".github/workflows/ci.yml");
+        assertTrue(Files.isRegularFile(ci), "找不到 CI 工作流：" + ci);
+        return Files.readAllLines(ci, StandardCharsets.UTF_8);
     }
 }
