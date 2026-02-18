@@ -10,57 +10,48 @@ import java.util.function.Supplier;
 import java.util.stream.Collectors;
 
 /**
- * 指标门面注册表。
- * 对应 Micrometer: MeterRegistry（自研轻量子集，保留桥接可能）
+ * 指标门面注册表（Micrometer 自研轻量子集）。
  *
  * <p>同名同 tag 的指标复用同一实例（tag 顺序无关）。
  *
  * @since v0.7.0 (2021)
  * @author jvfault team
  */
-public class DefaultMeterRegistry implements MeterRegistry {
+public class DefaultMeterRegistry {
 
     private final ConcurrentHashMap<String, Meter> meters = new ConcurrentHashMap<>();
     private volatile MeterFilter filter = MeterFilter.allowAll();
 
-    @Override
     public Counter counter(String name, String... tags) {
         return getOrCreate(Counter.class, MeterType.COUNTER, name, tags, () -> new Counter(newId(name, MeterType.COUNTER, tags)));
     }
 
-    @Override
     public Timer timer(String name, String... tags) {
         return getOrCreate(Timer.class, MeterType.TIMER, name, tags, () -> new Timer(newId(name, MeterType.TIMER, tags)));
     }
 
-    @Override
     public DistributionSummary summary(String name, String... tags) {
         return getOrCreate(DistributionSummary.class, MeterType.SUMMARY, name, tags,
                 () -> new DistributionSummary(newId(name, MeterType.SUMMARY, tags)));
     }
 
-    @Override
     public Gauge gauge(String name, final Number number, String... tags) {
         return getOrCreate(Gauge.class, MeterType.GAUGE, name, tags,
                 () -> new Gauge(newId(name, MeterType.GAUGE, tags), number::doubleValue));
     }
 
-    @Override
     public Gauge gauge(String name, final java.util.function.DoubleSupplier supplier, String... tags) {
         return getOrCreate(Gauge.class, MeterType.GAUGE, name, tags, () -> new Gauge(newId(name, MeterType.GAUGE, tags), supplier));
     }
 
-    @Override
     public void setFilter(MeterFilter filter) {
         this.filter = filter != null ? filter : MeterFilter.allowAll();
     }
 
-    @Override
     public Meter find(String name, String... tags) {
         return meters.get(id(name, tags));
     }
 
-    @Override
     public void clear() {
         meters.clear();
     }

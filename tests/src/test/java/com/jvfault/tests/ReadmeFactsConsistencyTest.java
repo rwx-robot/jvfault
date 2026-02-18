@@ -45,11 +45,18 @@ class ReadmeFactsConsistencyTest {
 
     // ── 单一事实来源：源码派生值必须与这些常量一致；常量漂移由「源码派生」侧捕获 ──
     private static final int EXPECTED_FRAMEWORK_MODULES = 39;
-    private static final int EXPECTED_EXAMPLES = 12;
+    private static final int EXPECTED_EXAMPLES = 5;
     private static final int EXPECTED_TRANSPORT = 7;
     private static final int EXPECTED_MODULES_WITH_TESTS = 39;
     private static final int EXPECTED_MR_JAR = 38;
-    private static final int EXPECTED_TEST_COUNT = 274;
+    /**
+     * 测试总数（badge + 维度表共用）。
+     *
+     * <p><b>⚠️ 本常量无法自我校验</b>：测试总数由 Gradle 产出，本测试只能比对 README 与本常量。
+     * <b>新增/删除任何测试后必须</b>：跑全量 {@code ./gradlew test}，核对真实总数，再更新本常量与 README。
+     * （v1.0.9 曾漏掉这步 —— 加了 7 个测试却仍写 274，导致 README 静默漂移；v1.0.10 修正为 281。）
+     */
+    private static final int EXPECTED_TEST_COUNT = 281;
 
     /** 默认 baseline —— 根 build.gradle.kts 的 options.release。 */
     private static final int DEFAULT_RELEASE = 8;
@@ -230,7 +237,7 @@ class ReadmeFactsConsistencyTest {
     }
 
     @Test
-    @DisplayName("版本示例数：源码派生 12 == 常量 == README「12 个」")
+    @DisplayName("版本示例数：源码派生 5 == 常量 == README「5 个」")
     void exampleCountConsistent() throws IOException {
         int derived = countExamples();
         assertEquals(EXPECTED_EXAMPLES, derived,
