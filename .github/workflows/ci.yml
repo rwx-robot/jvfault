@@ -21,13 +21,7 @@ jobs:
     runs-on: ubuntu-22.04
 
     # 真实 broker：让传输集成测试连真服务，而不是靠 Docker 自行拉起容器。
-    # 已接入 redis / rabbitmq / nats / mosquitto；gRPC 走本机回环无需 service。
-    #
-    # Kafka 暂不在此列：KRaft 冷启动 10-30s，而 GitHub service 容器缺少可靠的
-    # health check 命令（kafka-broker-api-versions.sh 在就绪前会超时，被判定
-    # unhealthy 会让 'Initialize containers' 步直接失败）。
-    # KafkaIntegrationTest 在无 JVFAULT_KAFKA_BOOTSTRAP 且本地无镜像时会 clean skip；
-    # 其集成路径由本地 + Docker 通道覆盖。
+    # redis / rabbitmq / nats / mosquitto / kafka 五个 broker 全部接入；gRPC 走本机回环。
     services:
       redis:
         image: redis:7.2-alpine
@@ -38,6 +32,34 @@ jobs:
           --health-interval 5s
           --health-timeout 3s
           --health-retries 20
+
+      # Kafka KRaft 单节点。健康检查有两个必须注意的点：
+      #   1) kafka-broker-api-versions.sh **不在 PATH 上**，必须写全路径
+      #      /opt/kafka/bin/... 否则命令找不到 → 容器被判 unhealthy →
+      #      'Initialize containers' 步直接失败（这就是之前 Kafka 进不了 CI 的原因）。
+      #   2) --bootstrap-server 用容器内监听地址 localhost:9092（不是宿主机映射端口）。
+      # 实测：约 10s 后转为 healthy。
+      kafka:
+        image: apache/kafka:3.7.0
+        ports:
+          - 9092:9092
+        env:
+          KAFKA_NODE_ID: 1
+          KAFKA_PROCESS_ROLES: broker,controller
+          KAFKA_LISTENERS: PLAINTEXT://:9092,CONTROLLER://:9093
+          KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://localhost:9092
+          KAFKA_CONTROLLER_QUORUM_VOTERS: 1@localhost:9093
+          KAFKA_CONTROLLER_LISTENER_NAMES: CONTROLLER
+          KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: CONTROLLER:PLAINTEXT,PLAINTEXT:PLAINTEXT
+          KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+          KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR: 1
+          KAFKA_TRANSACTION_STATE_LOG_MIN_ISR: 1
+          KAFKA_GROUP_INITIAL_REBALANCE_DELAY_MS: 0
+        options: >-
+          --health-cmd "/opt/kafka/bin/kafka-broker-api-versions.sh --bootstrap-server localhost:9092"
+          --health-interval 5s
+          --health-timeout 20s
+          --health-retries 30
 
       rabbitmq:
         image: rabbitmq:3-management
@@ -71,6 +93,7 @@ jobs:
 
     env:
       JVFAULT_REDIS_BOOTSTRAP: redis://127.0.0.1:6379
+      JVFAULT_KAFKA_BOOTSTRAP: localhost:9092
       JVFAULT_RMQ_BOOTSTRAP: amqp://localhost:5672
       JVFAULT_NATS_BOOTSTRAP: nats://localhost:4222
       JVFAULT_MQTT_BOOTSTRAP: tcp://localhost:1883
