@@ -113,6 +113,14 @@ jobs:
       - name: Build and test
         run: ./gradlew build --no-daemon
 
+      # 测试总数是 README 里唯一「无法自我校验」的宣称：
+      # 它由 Gradle 产出，JUnit 测试本身看不到汇总数，ReadmeFactsConsistencyTest 只能比对
+      # 「README ↔ 常量」。故在此用脚本把 JUnit 报告的实测总数与 README badge 锁死 ——
+      # 任何人改了测试数却没同步文档，CI 直接红。
+      # （统计的是 tests 属性 = 发现的用例数，含 skipped，所以有无 broker 都稳定。）
+      - name: Verify README test count matches actual results
+        run: ./scripts/verify-readme-test-count.sh
+
       - name: Verify publishing to Maven Local
         run: ./gradlew publishToMavenLocal --no-daemon
 
