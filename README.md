@@ -1,14 +1,15 @@
 # jvfault Framework
 
 > **Modern Modular Java Framework Architecture** — 注解驱动、模块化、类型安全的纯 Java 框架。
-> 基线 JDK 8（`--release 8` 编译），遵循 JSR-330 / JSR-250 / SPI 标准，零外部框架依赖。
+> 默认基线 JDK 8（`--release 8` 编译），遵循 JSR-330 / JSR-250 / SPI 标准，零外部框架依赖。
+> **注意**：AI 时代模块需 JDK 17、虚拟线程模块需 JDK 21 —— 详见下方「JDK 需求分层」。
 
 [![Java](https://img.shields.io/badge/Java-8%2B-orange.svg)](https://openjdk.org/)
 [![Gradle](https://img.shields.io/badge/Gradle-8.x-green.svg)](https://gradle.org/)
 [![Tests](https://img.shields.io/badge/tests-269%20passing-brightgreen.svg)](#构建与测试)
 [![CI](https://github.com/rwx-robot/jvfault/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/rwx-robot/jvfault/actions/workflows/ci.yml)
 [![License](https://img.shields.io/badge/license-Apache--2.0-blue.svg)](LICENSE)
-[![Version](https://img.shields.io/badge/release-v1.0.7-blue.svg)](#)
+[![Version](https://img.shields.io/badge/release-v1.0.8-blue.svg)](#)
 
 **jvfault** 是一个以 Java 标准库实现的模块化应用框架：IoC 容器 + 模块化系统为内核，
 上层覆盖 Web（Servlet/Reactive）、安全、合规、可观测性、微服务传输与 AI 接入。
@@ -76,12 +77,50 @@ cache       @Cacheable/@CacheEvict、多级缓存
 plugin      插件 SPI：隔离 ClassLoader、依赖拓扑、生命周期
 apt         编译期 @Module 元数据生成（META-INF/jvfault/modules.txt）
 aot/native  GraalVM 反射配置生成与 native 提示
-virtualthreads     虚拟线程执行器与结构化并发
-ai/rag/mcp  ChatModel SPI、向量检索、MCP 服务器   (JDK 17)
-compliance/migration/ops           审计脱敏、迁移分析、健康检查与优雅关闭
+ai/rag/mcp              ChatModel SPI、向量检索、MCP 服务器                 (JDK 17)
+compliance/migration    合规审计脱敏、迁移分析                               (JDK 17)
+ops                     健康检查、指标端点、优雅关闭                          (JDK 8)
+virtualthreads          虚拟线程执行器与结构化并发                            (JDK 21)
 test        JUnit 5 扩展 (@TestModule + @Autowired)
 tests       跨模块端到端套件（Jetty + JWT）
 ```
+
+## JDK 需求分层
+
+框架**默认**以 `--release 8` 编译（根 `build.gradle.kts`），但**时代特性模块**需要更高 JDK ——
+它们在各自的 `build.gradle.kts` 里覆盖了 `options.release`：
+
+| 需求 JDK | 模块 | 依据 |
+|:--------:|------|------|
+| **8**（默认） | core、web、security、logging、metrics、transport-\*、cache、scheduling 等**其余全部** | 根 `build.gradle.kts:139` → `options.release = 8` |
+| **9** | 仅 `module-info.java` 编译层（产物落在 MR-JAR 的 `META-INF/versions/9/`） | `build.gradle.kts:88`，JPMS 描述符自 JDK 9 起可用 |
+| **17** | `ai`、`rag`、`mcp`、`compliance`、`migration` | 各自 `build.gradle.kts` 覆盖为 `options.release = 17` |
+| **21** | `virtualthreads` | 依赖 Project Loom 虚拟线程 API，无法降级 |
+| **21** | `examples/v0.8.0`（示例，不发布） | 依赖 `virtualthreads` |
+| **17** | `tests`（测试套件，不发布） | JUnit 5 链式断言需要 |
+
+### 运行时实测（2026-09-24 · Temurin `1.8.0_504`）
+
+把 37 个已发布 jar 丢到**真正的 Java 8 JVM** 上逐个加载，结论：
+
+- **31 个 jar 全部通过** —— `core`/`web`/`security`/`transport-*`/`logging` 等在 Java 8 上真正可用 ✅
+- **6 个 jar 抛 `UnsupportedClassVersionError`** —— 就是上面 release ≥ 17 的那 6 个模块
+
+这是**预期行为，不是缺陷**：虚拟线程和 `java.net.http.HttpClient` 这类 API 在 Java 8 上本就不存在。
+**选型时请注意**：若你的运行时是 Java 8，**不要引入** `ai`/`rag`/`mcp`/`compliance`/`migration`/`virtualthreads`，
+其余模块可放心使用。
+
+> `${JAVA_HOME}` 用的是 JDK 21 也照样能构建 —— 构建期不受影响，只有**运行时**有上述约束。
+
+自行复现（脚本会自动下载 Temurin 8 JRE 并跑，无需预装 Java 8）：
+
+```bash
+./scripts/java8-runtime-smoke/run.sh
+```
+
+> 已知限制：`platform-reactive`/`openapi`/`native`/`aot`/`graphql`/`sse` 这 6 个模块依赖 Spring、WebFlux 等三方库，
+> 冒烟脚本的 classpath 只有 jvfault 自身 + slf4j，因此这些模块的类会因依赖缺失加载失败 ——
+> 脚本已把这类错误排除在「Java 8 不兼容」之外，但**意味着它们未被严格验证**。
 
 ## 集成测试与 CI
 
