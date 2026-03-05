@@ -56,7 +56,7 @@ class ReadmeFactsConsistencyTest {
      * <b>新增/删除任何测试后必须</b>：跑全量 {@code ./gradlew test}，核对真实总数，再更新本常量与 README。
      * （v1.0.9 曾漏掉这步 —— 加了 7 个测试却仍写 274，导致 README 静默漂移；v1.0.10 修正为 281。）
      */
-    private static final int EXPECTED_TEST_COUNT = 283;
+    private static final int EXPECTED_TEST_COUNT = 285;
 
     /** 默认 baseline —— 根 build.gradle.kts 的 options.release。 */
     private static final int DEFAULT_RELEASE = 8;
@@ -340,6 +340,58 @@ class ReadmeFactsConsistencyTest {
         Matcher totalM = Pattern.compile("(\\d+)\\s*个\\s*已发布\\s*jar").matcher(whole);
         assertTrue(totalM.find(), "README「运行时实测」未写「N 个已发布 jar」");
         assertEquals(runtimeTotal, Integer.valueOf(totalM.group(1)),
-                "README 的「已发布 jar」数与运行时模块总数不符（应为 37 = 39 - test - tests）");
+                "README 的「已发布 jar」数与运行时模块总数不符（= 框架模块 - test - tests）");
+    }
+
+    /**
+     * 版本 badge ↔ {@code gradle.properties}。
+     *
+     * <p>两边都从源码派生，<b>不需要维护常量</b> —— 所以这条永远不会因为「忘了改常量」而假红。
+     * 加它是因为 v1.0.11 时发现 Version badge 长期停在 {@code v1.0.8}，
+     * 而实际版本已经是 1.0.11（v1.0.9 / v1.0.10 连续两次漏改）。
+     */
+    @Test
+    @DisplayName("版本：README Version badge == gradle.properties 的 jvfaultVersion")
+    void versionBadgeMatchesGradleProperties() throws IOException {
+        Path props = projectRoot().resolve("gradle.properties");
+        assertTrue(Files.isRegularFile(props), "gradle.properties 不存在：" + props);
+        String propsText = new String(Files.readAllBytes(props), StandardCharsets.UTF_8);
+        Matcher ver = Pattern.compile("jvfaultVersion\\s*=\\s*(\\S+)").matcher(propsText);
+        assertTrue(ver.find(), "gradle.properties 里找不到 jvfaultVersion");
+        String actual = ver.group(1).trim();
+
+        String readme = String.join("\n", readmeLines());
+        Matcher badge = Pattern.compile("release-v(\\d+\\.\\d+\\.\\d+)-blue").matcher(readme);
+        assertTrue(badge.find(), "README 里找不到 release-vX.Y.Z 形式的 Version badge");
+        String declared = badge.group(1).trim();
+
+        assertEquals(actual, declared,
+                "README Version badge 与 gradle.properties 不一致（badge=v" + declared
+                        + "，实际=" + actual + "）\n修复：把 README 的 Version badge 改成 v" + actual);
+    }
+
+    /**
+     * README 里「含 N 例 JPMS 多版本 JAR 回归」的 N ↔ {@code JpmsModulePathSmokeTest} 里
+     * {@code @Test} 的实际个数。两边都从源码派生，无需维护常量。
+     */
+    @Test
+    @DisplayName("JPMS 回归例数：README「含 N 例」== JpmsModulePathSmokeTest 的 @Test 实际个数")
+    void jpmsRegressionCountMatches() throws IOException {
+        Path src = projectRoot()
+                .resolve("tests/src/test/java/com/jvfault/tests/JpmsModulePathSmokeTest.java");
+        assertTrue(Files.isRegularFile(src), "找不到 JPMS 回归测试源码：" + src);
+        String text = new String(Files.readAllBytes(src), StandardCharsets.UTF_8);
+        Matcher t = Pattern.compile("@Test\\b").matcher(text);
+        int actual = 0;
+        while (t.find()) {
+            actual++;
+        }
+        assertTrue(actual > 0, "JpmsModulePathSmokeTest 里没数到 @Test");
+
+        String readme = String.join("\n", readmeLines());
+        Matcher claim = Pattern.compile("含\\s*(\\d+)\\s*例\\s*JPMS").matcher(readme);
+        assertTrue(claim.find(), "README 里找不到「含 N 例 JPMS」的宣称");
+        assertEquals(actual, Integer.valueOf(claim.group(1)),
+                "README 的 JPMS 回归例数与实际不符（实际 " + actual + " 个 @Test）");
     }
 }
