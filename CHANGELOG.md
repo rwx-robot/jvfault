@@ -7,6 +7,37 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ---
 
+## [v1.0.11] - 新增 spring-boot-starter：可选插件式 Spring Boot 3 桥接（2026-09-25）
+
+### Added
+- **`spring-boot-starter` 模块**：Spring Boot 3 自动配置桥接，把 jvfault 容器接入 Spring 生命周期。
+  - `JvfaultProperties`（前缀 `jvfault`）：`base-packages`（**必填，opt-in**）、
+    `root-module`（留空时自动推断 basePackages 下唯一的 `@Module`）、`exposeBeans`
+  - `JvfaultAutoConfiguration`：创建 `ModuleContainer`，并把 jvfault 的 bean
+    **单向暴露**为 Spring bean；`destroyMethod = "destroy"` 交由 Spring 托管生命周期
+    （用 `createContainer` 而非 `run()` —— 后者会阻塞并注册自己的 JVM shutdown hook）
+  - 通过 Boot 3 风格 `META-INF/spring/org.springframework.boot.autoconfigure.AutoConfiguration.imports` 注册
+  - **刻意不做反向**（把 Spring bean 塞进 jvfault）：那会把两个容器的生命周期与依赖解析纠缠，
+    循环依赖极难诊断；需要时由使用者显式桥接
+  - 2 个回归测试：「配置后能从 Spring 拿到 jvfault bean」+「未配置时完全不激活」
+
+### 插件化边界（Ny 要求「模块化、插件化」，逐条落实）
+- 依赖方向**单向**：`spring-boot-starter -> core`；**core 不反向依赖本模块，也不依赖 Spring**，
+  「零 Spring」承诺不受影响
+- Spring 依赖声明为 `compileOnly`，**不会传递**进使用者的依赖树 —— 不引入本 starter 就完全没有 Spring
+- opt-in：不配置 `jvfault.base-packages` 时自动配置不激活，放进依赖树零副作用
+- 编译目标 **JDK 21**（当前 JDK；Spring Boot 3 要求 17+）
+- 不提供 `module-info.java`：Spring Boot 自动配置并非 JPMS 友好，按 classpath 适配器发布
+  （与 `tests` 一样不进 MR-JAR）
+
+### Changed
+- 各计数随之更新：框架模块 39 → **40**、含测试模块 39 → **40**、测试总数 281 → **283**、
+  高 JDK 运行时模块 6 → **7**、运行时验收 jar 37 → **38**（通过数仍为 31）
+- `ReadmeFactsConsistencyTest` 中两处写死的 `"39"` / `"7"` 改为引用常量 —— 加模块时不会再假红
+
+### Fixed
+- README 的 Version badge 一直停留在 `v1.0.8`（v1.0.9 / v1.0.10 连续两次漏改），本次同步为 v1.0.11
+
 ## [v1.0.10] - ponytail 审计收口 + JDK 21 引用修正 + 测试总数重定基线（2026-09-24）
 
 ### Removed

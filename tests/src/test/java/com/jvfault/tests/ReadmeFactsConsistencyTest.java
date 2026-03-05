@@ -44,10 +44,10 @@ import static org.junit.jupiter.api.Assertions.*;
 class ReadmeFactsConsistencyTest {
 
     // ── 单一事实来源：源码派生值必须与这些常量一致；常量漂移由「源码派生」侧捕获 ──
-    private static final int EXPECTED_FRAMEWORK_MODULES = 39;
+    private static final int EXPECTED_FRAMEWORK_MODULES = 40;
     private static final int EXPECTED_EXAMPLES = 5;
     private static final int EXPECTED_TRANSPORT = 7;
-    private static final int EXPECTED_MODULES_WITH_TESTS = 39;
+    private static final int EXPECTED_MODULES_WITH_TESTS = 40;
     private static final int EXPECTED_MR_JAR = 38;
     /**
      * 测试总数（badge + 维度表共用）。
@@ -56,7 +56,7 @@ class ReadmeFactsConsistencyTest {
      * <b>新增/删除任何测试后必须</b>：跑全量 {@code ./gradlew test}，核对真实总数，再更新本常量与 README。
      * （v1.0.9 曾漏掉这步 —— 加了 7 个测试却仍写 274，导致 README 静默漂移；v1.0.10 修正为 281。）
      */
-    private static final int EXPECTED_TEST_COUNT = 281;
+    private static final int EXPECTED_TEST_COUNT = 283;
 
     /** 默认 baseline —— 根 build.gradle.kts 的 options.release。 */
     private static final int DEFAULT_RELEASE = 8;
@@ -254,19 +254,23 @@ class ReadmeFactsConsistencyTest {
         assertEquals(EXPECTED_TRANSPORT, derived,
                 "transport-* 模块数变了？同步本常量与 README");
         List<String> lines = readmeLines();
-        boolean mentions7 = lines.stream().anyMatch(l -> l.contains("7 个均含真实集成测试"));
-        assertTrue(mentions7, "README 未以「7 个均含真实集成测试」声明传输适配数（源码派生=" + derived + "）");
+        // 同样用常量拼，不写死 "7"
+        String want = EXPECTED_TRANSPORT + " 个均含真实集成测试";
+        boolean mentions = lines.stream().anyMatch(l -> l.contains(want));
+        assertTrue(mentions, "README 未以「" + want + "」声明传输适配数（源码派生=" + derived + "）");
     }
 
     @Test
-    @DisplayName("含测试模块数：源码派生 39 == 常量 == README「全部 39 个均含测试」")
+    @DisplayName("含测试模块数：源码派生 40 == 常量 == README「全部 40 个均含测试」")
     void modulesWithTestsConsistent() throws IOException {
         int derived = countModulesWithTests();
         assertEquals(EXPECTED_MODULES_WITH_TESTS, derived,
                 "含 src/test/java 的模块数变了？同步本常量与 README");
         String cell = dimensionCell(readmeLines(), "模块");
         assertNotNull(cell, "README「维度」表缺少「模块」行");
-        assertTrue(cell.contains("39"), "README 模块行未写 39：" + cell);
+        // 用常量而不是写死 "39" —— 否则加模块后这里会红（曾漏改过一次）
+        assertTrue(cell.contains(String.valueOf(EXPECTED_MODULES_WITH_TESTS)),
+                "README 模块行未写 " + EXPECTED_MODULES_WITH_TESTS + "：" + cell);
         assertTrue(cell.contains("全部") || cell.contains("均含"),
                 "README 模块行应明确「全部 39 个均含测试」，当前：" + cell);
     }

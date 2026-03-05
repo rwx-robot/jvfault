@@ -23,7 +23,8 @@ listOf(
     "transport-nats", "transport-rmq", "transport-mqtt",
     "aot", "native", "virtualthreads",
     "ai", "rag", "mcp",
-    "compliance", "migration", "ops"
+    "compliance", "migration", "ops",
+    "spring-boot-starter"
 ).forEach { include(":$it") }
 
 listOf(
