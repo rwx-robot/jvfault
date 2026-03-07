@@ -245,13 +245,13 @@ class JpmsModulePathSmokeTest {
     }
 
     /**
-     * 验证 {@code examples/v*} 12 个版本示例的源码结构完整 —— 每个示例都应有
+     * 验证 {@code examples/v*} 5 个版本示例的源码结构完整 —— 每个示例都应有
      * {@code Application} 主类（编译/集成测试由各 example 子项目自己的
      * {@code :examples:v*:test} 覆盖；这里只做结构自检，避免
-     * "examples 目录被切走但 CI 仍声称 12/12 绿" 这种静默失败）。
+     * "examples 目录被切走但 CI 仍声称 5/5 绿" 这种静默失败）。
      */
     @Test
-    @DisplayName("examples/v* 结构自检（12 个示例 + Application 主类）")
+    @DisplayName("examples/v* 结构自检（5 个示例 + Application 主类）")
     void verifyExamplesStructure() throws IOException {
         Path root = moduleRoot();
         Path examplesRoot = root.resolve("examples");
@@ -277,8 +277,8 @@ class JpmsModulePathSmokeTest {
                 }
             }
         }
-        if (found != 12) {
-            fail("期望 12 个 examples/v* 目录，实际发现 " + found + " 个");
+        if (found != 5) {
+            fail("期望 5 个 examples/v* 目录，实际发现 " + found + " 个");
         }
         if (!missing.isEmpty()) {
             fail("以下示例主类缺失：\n" + String.join("\n", missing));

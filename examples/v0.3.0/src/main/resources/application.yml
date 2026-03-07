@@ -1,7 +1,0 @@
-app:
-  name: order-service
-  timeout: 30
-  features:
-    retry: true
-db:
-  url: jdbc:h2:mem:dev
