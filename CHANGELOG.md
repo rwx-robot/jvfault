@@ -7,6 +7,24 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ---
 
+## [v1.0.12] - 再堵两个漂移口子：版本 badge 与 JPMS 回归例数（2026-09-25）
+
+### Added
+- **`versionBadgeMatchesGradleProperties()`**（机检）：README 的 Version badge 必须等于
+  `gradle.properties` 里的 `jvfaultVersion`。**两边都从源码派生，不需要维护常量** ——
+  因此永远不会因「忘了改常量」而假红。
+  动因：v1.0.11 时发现 Version badge 长期停在 `v1.0.8`，而实际版本已是 1.0.11
+  （v1.0.9 / v1.0.10 **连续两次漏改**）。
+- **`jpmsRegressionCountMatches()`**（机检）：README「含 N 例 JPMS 多版本 JAR 回归」的 N
+  必须等于 `JpmsModulePathSmokeTest` 里 `@Test` 的实际个数。同样两边派生、无需常量。
+
+### Fixed
+- **JPMS 回归例数漂移**：README 写「含 6 例」，实际 `JpmsModulePathSmokeTest` 已有
+  **8 个** `@Test`（`verifyModuleNameInSource` / `verifyMrJarDescriptors` /
+  `verifyBuildVersionReadable` / `verifyClasspathIoC` / `verifyCurrentModuleReadable` /
+  `verifyExamplesStructure` / `verifySpiServiceFilesReadable` / `verifyCoreModuleExports`）。
+- 测试总数 283 → **285**（本次新增 2 个机检测试）。
+
 ## [v1.0.11] - 新增 spring-boot-starter：可选插件式 Spring Boot 3 桥接（2026-09-25）
 
 ### Added
