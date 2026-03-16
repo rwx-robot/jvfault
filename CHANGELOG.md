@@ -7,6 +7,18 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ---
 
+## [v1.0.13] - 把 CI 相关宣称也纳入机检（broker 数 / JDK 覆盖）（2026-09-25）
+
+### Added
+- **`ciBrokerCountMatchesReadme()`**（机检）：README「N 个 broker」↔ `ci.yml` 里 service 的实际个数。
+  两边都派生，无需常量 —— CI 加减 broker 却没改文档时会红。
+- **`ciJdkCoversHighestRelease()`**（机检）：CI 的 `java-version` 必须**覆盖**所有模块里最高的
+  `options.release`。这是「构建用 JDK 21、产物仍 `--release 8」这条承诺成立的前提：
+  若某天新增 release 25 的模块而 CI 还是 21，构建会直接失败 —— 现在会提前被这条抓住。
+
+### Changed
+- 测试总数 285 → **287**（新增 2 个机检）。
+
 ## [v1.0.12] - 再堵两个漂移口子：版本 badge 与 JPMS 回归例数（2026-09-25）
 
 ### Added
