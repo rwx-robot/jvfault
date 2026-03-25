@@ -5,9 +5,9 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 每个版本标签对应 roadmap 中的模拟纪元。
 
-> **关于提交日期（2026-09-25 重建）**：提交原本全部集中在 4 天内，
-> 导致 GitHub 活跃度图无法呈现演进过程。现已把 **59 个提交按 3 年跨度均匀分布重建**
-> （2023-03-26 ~ 2026-03-25），版本标签随之连续排列（v0.1.0 → v1.0.13）。
+> **关于提交日期（重建）**：提交原本全部集中在 4 天内，导致 GitHub 活跃度图
+> 无法呈现演进过程。现按「**每 3 天安排一个集中提交日**（该阶段的提交集中在当天完成）」
+> 重建，时间落在 **去年 ~ 今年 3 月**，版本标签随之连续排列（v0.1.0 → v1.0.13）。
 > 注意：这是**回填的提交日期**（`GIT_AUTHOR_DATE`/`GIT_COMMITTER_DATE`），
 > 并非真实开发时间；重建前的原始历史保留在远程备份分支 `backup/pre-rewrite-20260925`。
 
