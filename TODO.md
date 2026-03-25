@@ -14,7 +14,7 @@
 | 3 | **P1** | spring-boot-starter：示例工程 | ⏸ | 待 Ny 决策 |
 | 4 | **P2** | `distribution` BOM 模块缺失 | ✅ | 已落地（commit cfee7dd） |
 | 5 | **P2** | Java 8 冒烟未能覆盖 6 个模块 | ✅ | 已做字节码级验证（见下） |
-| 6 | **P2** | Javadoc 站点 | 🔧 | 无 |
+| 6 | **P2** | Javadoc 站点 | ✅ | 聚合站点 + Pages 部署（commit c1337ff） |
 | 7 | **P2** | 「18 个传输集成测试」仍未被机检 | ✅ | 已加 scripts/verify-transport-it-count.sh（commit f70c39b） |
 | 8 | — | spring-boot-starter 无 `module-info` | ✅ 刻意 | 见下方说明 |
 
@@ -121,3 +121,4 @@ Spring Boot 的自动配置并非 JPMS 友好；本模块按 classpath 适配器
 | `distribution` BOM 模块（40 模块版本对齐） | v1.0.13+（commit cfee7dd） |
 | 传输集成测试数量机检（`scripts/verify-transport-it-count.sh`） | v1.0.13+（commit f70c39b） |
 | Java 8 冒烟升级为逐模块字节码基线验证（覆盖原「6 未验证」模块） | v1.0.13+ |
+| 聚合 Javadoc 站点任务 + GitHub Pages 自动部署（pages.yml） | v1.0.13+（commit c1337ff） |
