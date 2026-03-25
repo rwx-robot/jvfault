@@ -183,3 +183,37 @@ subprojects {
 
 // distribution 模块自管（BOM 配置在 distribution/build.gradle.kts）
 // 这里不需要额外的全局配置，避免 java-library/java-platform 冲突
+
+// ---- 聚合 Javadoc 站点（一次性生成全模块 API 文档，用于 GitHub Pages）----
+// 每个模块已各自产出 javadoc jar（withJavadocJar）；此处把它们合并成一个站点。
+val javadocAggregate by tasks.registering(Javadoc::class) {
+    group = "documentation"
+    description = "Aggregate Javadoc for all modules into a single site (build/docs/javadoc-aggregate)."
+
+    val javaProjects = subprojects.filter { it.plugins.hasPlugin("java") }
+    val mainSrc = javaProjects.map { p ->
+        p.extensions.getByType<org.gradle.api.tasks.SourceSetContainer>().getByName("main")
+    }
+    // 全部模块的 main 源码合并为单一 FileCollection（含所有 .java）
+    source(files(mainSrc.map { it.allJava }))
+    // 解析 @link / 继承关系所需的三方依赖 classpath
+    classpath = files(mainSrc.map { it.compileClasspath })
+
+    destinationDir = File(buildDir, "docs/javadoc-aggregate")
+    isFailOnError = false
+
+    (options as StandardJavadocDocletOptions).apply {
+        encoding = "UTF-8"
+        charSet = "UTF-8"
+        docEncoding = "UTF-8"
+        addStringOption("Xdoclint:none", "-quiet")
+        windowTitle = "jvfault API"
+        docTitle = "jvfault Framework API (v${project.version})"
+        header = "jvfault"
+        bottom = "jvfault ${project.version} — Licensed under Apache-2.0"
+        links("https://docs.oracle.com/en/java/javase/21/docs/api/")
+    }
+    // 排除模块描述符：避免 javadoc 进入 module 模式，保持传统「包视图」站点
+    exclude("**/module-info.java")
+}
+

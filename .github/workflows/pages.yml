@@ -1,0 +1,54 @@
+name: Pages
+
+# 聚合 Javadoc 站点部署到 GitHub Pages。
+# 独立于 ci.yml，避免文档部署的权限/配置问题影响主 CI 状态。
+# 注意：仓库需在 Settings → Pages → Source 选择 "GitHub Actions" 后本工作流才会真正发布成功。
+on:
+  push:
+    branches: [ main ]
+    paths:
+      - '**/*.java'
+      - 'build.gradle.kts'
+      - 'settings.gradle.kts'
+      - '**/build.gradle.kts'
+      - '.github/workflows/pages.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: true
+
+jobs:
+  build-docs:
+    runs-on: ubuntu-22.04
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up JDK 21
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+
+      - name: Setup Gradle
+        uses: gradle/actions/setup-gradle@v3
+
+      - name: Build aggregate Javadoc
+        run: ./gradlew javadocAggregate --no-daemon
+
+      - name: Upload Pages artifact
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: build/docs/javadoc-aggregate
+
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4

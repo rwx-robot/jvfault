@@ -101,6 +101,10 @@ tests       跨模块端到端套件（Jetty + JWT）
 | **21** | `examples/v0.8.0`（示例，不发布） | 依赖 `virtualthreads` |
 | **17** | `tests`（测试套件，不发布） | JUnit 5 链式断言需要 |
 
+> 全模块**聚合 Javadoc** 站点：`https://jvfault.github.io/jvfault/`（由 `.github/workflows/pages.yml`
+> 在 push 到 main 且 Java/构建配置变更时自动构建并部署到 GitHub Pages）。
+> 本地预览：`./gradlew javadocAggregate` → 产物在 `build/docs/javadoc-aggregate`。
+
 ### 运行时实测（Java 8 JVM 字节码级验证）
 
 冒烟脚本（`scripts/java8-runtime-smoke/run.sh`）在**真正的 Java 8 JVM** 上做两层验证：
