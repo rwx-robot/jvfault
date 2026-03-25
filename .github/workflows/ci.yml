@@ -121,6 +121,12 @@ jobs:
       - name: Verify README test count matches actual results
         run: ./scripts/verify-readme-test-count.sh
 
+      # 「传输集成测试」数量同样是 README 里无法自我校验的宣称：
+      # 它没有统一 @Tag，只能靠命名 / 是否起真实 broker 判断。用脚本把源码里
+      # 真正的集成测试用例数与 README 锁死 —— 增删集成测试却没同步文档，CI 直接红。
+      - name: Verify transport integration test count matches README
+        run: ./scripts/verify-transport-it-count.sh
+
       - name: Verify publishing to Maven Local
         run: ./gradlew publishToMavenLocal --no-daemon
 

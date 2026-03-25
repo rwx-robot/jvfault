@@ -142,6 +142,7 @@ tests       跨模块端到端套件（Jetty + JWT）
 
 CI 上 **5 个 broker 全部以真实 service 容器接入**（redis / kafka / rabbitmq / nats / mosquitto），
 gRPC 走本机回环，因此 **18 个传输集成测试在 CI 上真实执行**（不再跳过）。
+该数字由 `scripts/verify-transport-it-count.sh` 静态机检（与运行环境无关），增删集成测试须同步本文件的「18」与脚本默认值。
 Kafka 的 service 健康检查必须写全路径 `/opt/kafka/bin/kafka-broker-api-versions.sh`
 （该脚本不在镜像 PATH 上，写裸命令会让容器被判 unhealthy）。
 
