@@ -12,10 +12,10 @@
 | 1 | **P1** | Sonatype OSS 发布（Maven Central） | ⏸ | 缺凭据 |
 | 2 | **P1** | spring-boot-starter：反向注入（Spring→jvfault） | ⏸ | 待 Ny 决策 |
 | 3 | **P1** | spring-boot-starter：示例工程 | ⏸ | 待 Ny 决策 |
-| 4 | **P2** | `distribution` BOM 模块缺失 | 🔧 | 无（可自主做） |
-| 5 | **P2** | Java 8 冒烟未能覆盖 6 个模块 | 🔧 | 无（可自主做） |
+| 4 | **P2** | `distribution` BOM 模块缺失 | ✅ | 已落地（commit cfee7dd） |
+| 5 | **P2** | Java 8 冒烟未能覆盖 6 个模块 | ✅ | 已做字节码级验证（见下） |
 | 6 | **P2** | Javadoc 站点 | 🔧 | 无 |
-| 7 | **P2** | 「18 个传输集成测试」仍未被机检 | 🔧 | 部分难静态校验 |
+| 7 | **P2** | 「18 个传输集成测试」仍未被机检 | ✅ | 已加 scripts/verify-transport-it-count.sh（commit f70c39b） |
 | 8 | — | spring-boot-starter 无 `module-info` | ✅ 刻意 | 见下方说明 |
 
 ---
@@ -118,3 +118,6 @@ Spring Boot 的自动配置并非 JPMS 友好；本模块按 classpath 适配器
 | JPMS 回归例数机检（并修正 6 → 8） | v1.0.12 |
 | CI broker 数 / CI JDK 覆盖机检 | v1.0.13 |
 | GitHub About 描述 | Ny 已手动完成 |
+| `distribution` BOM 模块（40 模块版本对齐） | v1.0.13+（commit cfee7dd） |
+| 传输集成测试数量机检（`scripts/verify-transport-it-count.sh`） | v1.0.13+（commit f70c39b） |
+| Java 8 冒烟升级为逐模块字节码基线验证（覆盖原「6 未验证」模块） | v1.0.13+ |
