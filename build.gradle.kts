@@ -27,13 +27,53 @@ subprojects {
         archivesName = "jvfault-${project.name}"
     }
 
-    // JPMS 互操作第一步：为构件写入 Automatic-Module-Name。
-    // 基线为 Java 8（--release 8），无法编译 module-info.java；先给每个构件
-    // 一个稳定的自动模块名，消费方即可在 module path 上直接 requires。
-    // 后续若上 module-info（多版本 JAR），模块名须与此保持一致。
-    tasks.named<Jar>("jar") {
+    // JPMS：构件写入 Automatic-Module-Name（Java 8 侧）；
+    // 若模块提供 src/main/java9/module-info.java，则再打**多版本 JAR**（Java 9+ 侧），
+    // 描述符置于 META-INF/versions/9/、manifest 置 Multi-Release: true。
+    // 主代码仍以 --release 8 编译，Java 8 基线与 JPMS 兼容性兼得。
+    val moduleName = "com.jvfault." + project.name.replace('-', '.')
+    val jarTask = tasks.named<Jar>("jar")
+    val moduleInfo9 = file("src/main/java9/module-info.java")
+    jarTask.configure {
         manifest {
-            attributes["Automatic-Module-Name"] = "com.jvfault." + project.name.replace('-', '.')
+            attributes["Automatic-Module-Name"] = moduleName
+            if (moduleInfo9.exists()) {
+                attributes["Multi-Release"] = "true"
+            }
+        }
+    }
+    if (moduleInfo9.exists()) {
+        val mainClasses = extensions.getByType<org.gradle.api.tasks.SourceSetContainer>()
+            .getByName("main").output.classesDirs
+        // 依赖须以「JAR」形态上 module path（项目依赖默认解析为 classes 目录，无模块描述符）
+        val deps = configurations.getByName("compileClasspath")
+        val modulePath = deps.incoming.artifactView {
+            attributes {
+                attribute(
+                    org.gradle.api.attributes.LibraryElements.LIBRARY_ELEMENTS_ATTRIBUTE,
+                    objects.named(
+                        org.gradle.api.attributes.LibraryElements::class.java,
+                        org.gradle.api.attributes.LibraryElements.JAR
+                    )
+                )
+            }
+        }.files
+        val compileModuleInfo9 = tasks.register<JavaCompile>("compileJava9ModuleInfo") {
+            source(moduleInfo9)
+            destinationDirectory.set(layout.buildDirectory.dir("classes/java9"))
+            classpath = files()
+            options.release.set(9)
+            options.encoding = "UTF-8"
+            options.compilerArgs.addAll(listOf(
+                "--patch-module", moduleName + "=" + mainClasses.asPath,
+                "--module-path", modulePath.asPath
+            ))
+            dependsOn(tasks.named("classes"))
+        }
+        jarTask.configure {
+            from(compileModuleInfo9.flatMap { it.destinationDirectory }) {
+                into("META-INF/versions/9")
+            }
         }
     }
 
@@ -67,7 +107,10 @@ subprojects {
 
     tasks.withType<JavaCompile>().configureEach {
         options.encoding = "UTF-8"
-        options.release = 8
+        // module-info 描述符需 --release 9（在多版本 JAR 任务里单独设定）；其余模块保持 Java 8 基线
+        if (name != "compileJava9ModuleInfo") {
+            options.release = 8
+        }
         options.compilerArgs.addAll(listOf("-parameters", "-Xlint:all,-processing,-serial"))
     }
 
