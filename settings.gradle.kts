@@ -32,8 +32,14 @@ listOf(
     "transport-nats",
     "transport-rmq",
     "transport-mqtt",
+    "openapi",
+    "graphql",
+    "scheduling",
+    "cache",
+    "tracing",
+    "metrics",
     "tests"
 ).forEach { include(":$it") }
 
 // runnable examples
-    include(":examples:v0.6.0")
+    include(":examples:v0.7.0")
