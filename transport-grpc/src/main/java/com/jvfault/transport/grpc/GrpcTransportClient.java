@@ -1,39 +1,54 @@
 package com.jvfault.transport.grpc;
 
+import com.jvfault.microservices.JacksonMessageCodec;
 import com.jvfault.microservices.Message;
 import com.jvfault.microservices.MessageCodec;
-import com.jvfault.microservices.JacksonMessageCodec;
 import com.jvfault.microservices.TransportClient;
 import com.jvfault.microservices.TransportException;
+import com.jvfault.microservices.TransportTimeoutException;
+import io.grpc.CallOptions;
+import io.grpc.ManagedChannel;
+import io.grpc.Status;
+import io.grpc.StatusRuntimeException;
+import io.grpc.netty.NettyChannelBuilder;
+import io.grpc.stub.ClientCalls;
+
+import java.util.concurrent.TimeUnit;
 
 /**
- * gRPC 传输客户端骨架：编码与连接生命周期由本类管理，
- * 真实网络发送由 doRequest/doEmit 钩子实现（子类适配器提供）。
+ * gRPC 传输客户端（grpc-netty 真实实现）。
  *
- * @since v0.6.0 (2020)
+ * <p>request-reply 走 {@link ClientCalls#blockingUnaryCall} 到通用 unary 方法；
+ * 请求/响应体为 JSON wire；handler 异常经 error 头回传后抛 {@link TransportException}。
+ *
+ * @since v1.0.2 (2026)
  * @author jvfault team
  */
 public class GrpcTransportClient implements TransportClient {
 
-    protected final ConnectionConfig config;
-    protected final MessageCodec codec = new JacksonMessageCodec();
-    protected volatile boolean connected;
+    private final ConnectionConfig config;
+    private final MessageCodec codec = new JacksonMessageCodec();
+    private ManagedChannel channel;
+    private volatile boolean connected;
 
     public GrpcTransportClient(ConnectionConfig config) {
         this.config = config;
     }
 
     @Override
-    public void connect() {
+    public synchronized void connect() {
+        if (connected) {
+            return;
+        }
         config.validate();
-        doConnect();
+        channel = NettyChannelBuilder
+                .forAddress(GrpcMethod.host(config.getBootstrap()), GrpcMethod.port(config.getBootstrap()))
+                .usePlaintext()
+                .build();
         connected = true;
     }
 
-    protected void doConnect() {
-    }
-
-    protected void ensureConnected() {
+    private void ensureConnected() {
         if (!connected) {
             connect();
         }
@@ -42,28 +57,43 @@ public class GrpcTransportClient implements TransportClient {
     @Override
     public Message request(String pattern, Object payload, long timeoutMillis) {
         ensureConnected();
-        byte[] data = codec.encode(payload);
-        byte[] response = doRequest(pattern, data, timeoutMillis);
-        return response != null ? new Message(pattern, response) : null;
-    }
-
-    protected byte[] doRequest(String pattern, byte[] data, long timeoutMillis) {
-        throw new TransportException("gRPC request 需要子类适配");
+        Message request = new Message(pattern, codec.encode(payload));
+        try {
+            byte[] responseBytes = ClientCalls.blockingUnaryCall(channel, GrpcMethod.METHOD,
+                    CallOptions.DEFAULT.withDeadlineAfter(timeoutMillis, TimeUnit.MILLISECONDS),
+                    codec.encode(GrpcWire.from(request)));
+            Message response = codec.decode(responseBytes, GrpcWire.class).toMessage();
+            if (response.getHeader(Message.HEADER_ERROR) != null) {
+                throw new TransportException("远端错误: " + response.getHeader(Message.HEADER_ERROR));
+            }
+            return response;
+        } catch (StatusRuntimeException e) {
+            if (e.getStatus().getCode() == Status.Code.DEADLINE_EXCEEDED) {
+                throw new TransportTimeoutException("gRPC request 超时: " + pattern);
+            }
+            throw new TransportException("gRPC request 失败: " + pattern, e);
+        }
     }
 
     @Override
     public void emit(String pattern, Object payload) {
         ensureConnected();
-        doEmit(pattern, codec.encode(payload));
-    }
-
-    protected void doEmit(String pattern, byte[] data) {
-        throw new TransportException("gRPC emit 需要子类适配");
+        Message message = new Message(pattern, codec.encode(payload));
+        try {
+            ClientCalls.blockingUnaryCall(channel, GrpcMethod.METHOD,
+                    CallOptions.DEFAULT.withDeadlineAfter(5, TimeUnit.SECONDS),
+                    codec.encode(GrpcWire.from(message)));
+        } catch (StatusRuntimeException e) {
+            throw new TransportException("gRPC emit 失败: " + pattern, e);
+        }
     }
 
     @Override
-    public void close() {
+    public synchronized void close() {
         connected = false;
+        if (channel != null) {
+            channel.shutdownNow();
+        }
     }
 
     public boolean isConnected() {

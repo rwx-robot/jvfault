@@ -7,6 +7,31 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ---
 
+## [v1.0.2] - 传输层真实集成补全（2026-09-22）
+
+### Added
+- **transport-rmq**: RabbitMQ 真实实现（amqp-client 5.20.0）—— topic exchange 按 pattern 绑定、
+  `replyTo`/`correlationId` 请求-响应、handler 异常经 error 头回传；新增 `RabbitMQWire`、
+  `DockerContainer` + `RabbitMQIntegrationTest`（3 例真实 broker）
+- **transport-nats**: NATS 真实实现（jnats 2.17.5）—— NATS core request/reply（库自带 inbox）、
+  `#` → `>` 通配翻译；新增 `NATSWire`、`DockerContainer` + `NATSIntegrationTest`（3 例真实 broker）
+- **transport-mqtt**: MQTT 真实实现（Eclipse Paho mqttv3 1.2.5）—— 独占 replyTopic + correlationId
+  请求-响应、`*` → `+` 通配翻译；新增 `MqttWire`、`DockerContainer` + `MQTTIntegrationTest`（3 例真实 broker）
+- **transport-grpc**: gRPC 真实实现（grpc-netty 1.62.2）—— 通用 unary `MethodDescriptor` + `byte[]`
+  直通编组（无需 protobuf 代码生成）；新增 `GrpcWire`/`GrpcMethod`、`GrpcIntegrationTest`（3 例，netty 本机回环）
+- **ci**: 新增 rabbitmq / nats / mosquitto 三个 `services`，以及
+  `JVFAULT_RMQ_BOOTSTRAP` / `JVFAULT_NATS_BOOTSTRAP` / `JVFAULT_MQTT_BOOTSTRAP` 环境变量
+
+### Changed
+- **transport**: rmq / nats / mqtt / grpc 由「配置校验 + 惰性生命周期 + 客户端库适配骨架」升级为
+  **真实实现**（真实 broker / netty 回环端到端验证），测试数 251 → 263
+- **build**: 构件版本 `jvfaultVersion` 由 `1.0.1` 升到 `1.0.2`
+
+### Fixed
+- README / HANDOVER 数据同步：传输适配 7 个全部真实集成、263 测试
+
+---
+
 ## [v1.0.1] - 示例闭环与集成测试真实性（2026-09-22）
 
 ### Added
@@ -23,7 +48,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 - **transport-kafka**: 无任何订阅时 `bind()` 不再调用 `consumer.poll()`（此前抛 `IllegalStateException`）
 
 ### Changed
-- README / HANDOVER 数据同步：39 个模块、12 个版本示例、250 测试；移除已删除的 distribution BOM 描述
+- README / HANDOVER 数据同步：39 个模块、12 个版本示例、251 测试；移除已删除的 distribution BOM 描述
 
 ---
 
