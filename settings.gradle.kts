@@ -47,8 +47,14 @@ listOf(
     "ai",
     "rag",
     "mcp",
+    "security",
+    "compliance",
+    "migration",
+    "ops",
+    "distribution",
     "tests"
 ).forEach { include(":$it") }
 
 // runnable examples
-    include(":examples:v0.11.0")
+    include(":examples:v1.0.0")
+    include(":examples:tests")
