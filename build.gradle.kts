@@ -36,6 +36,25 @@ subprojects {
         withJavadocJar()
     }
 
+    // 构建期写入版本，运行时可读取（避免源码里硬编码版本号随迭代漂移）
+    val generateBuildInfo = tasks.register("generateBuildInfo") {
+        val outDir = layout.buildDirectory.dir("generated/build-info")
+        val moduleVersion = project.version.toString()
+        inputs.property("version", moduleVersion)
+        outputs.dir(outDir)
+        doLast {
+            val dir = outDir.get().asFile
+            dir.mkdirs()
+            java.io.File(dir, "META-INF/jvfault-build.properties").apply {
+                parentFile.mkdirs()
+            }.writeText("version=$moduleVersion\n")
+        }
+    }
+
+    tasks.withType<ProcessResources>().configureEach {
+        from(generateBuildInfo)
+    }
+
     tasks.withType<JavaCompile>().configureEach {
         options.encoding = "UTF-8"
         options.release = 8
