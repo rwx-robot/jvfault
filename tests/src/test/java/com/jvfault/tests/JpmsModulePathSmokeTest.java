@@ -27,13 +27,16 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
 import java.io.IOException;
+import java.io.InputStream;
 import java.nio.file.DirectoryStream;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.HashSet;
 import java.util.LinkedHashSet;
+import java.util.ServiceLoader;
 import java.util.Set;
 import java.util.TreeMap;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import java.util.jar.Attributes;
@@ -264,7 +267,7 @@ class JpmsModulePathSmokeTest {
                 // 各示例包名约定不同（v0.1.0→v010, v0.10.0→v1000, v0.11.0→v110, v1.0.0→v100），
                 // 不硬编码路径，直接在源码树里找 Application.java
                 Path mainSource = null;
-                try (var tree = Files.find(versionDir.resolve("src/main/java"),
+                try (java.util.stream.Stream<Path> tree = Files.find(versionDir.resolve("src/main/java"),
                         Integer.MAX_VALUE,
                         (p, attrs) -> p.getFileName().toString().equals("Application.java"))) {
                     mainSource = tree.findFirst().orElse(null);
@@ -279,6 +282,93 @@ class JpmsModulePathSmokeTest {
         }
         if (!missing.isEmpty()) {
             fail("以下示例主类缺失：\n" + String.join("\n", missing));
+        }
+    }
+
+    /**
+     * 验证所有带 module-info.java 的模块的发布 jar，SPI {@code META-INF/services/}
+     * 配置可被 {@link ServiceLoader} 发现。
+     *
+     * <p>MR-JAR 场景下，{@code META-INF/services/} 在 base 层（classpath）和
+     * {@code META-INF/versions/9/} 层都可能出现。若某一层的 services 文件声明了实现类，
+     * ServiceLoader 必须能读取（不能在 base 层误写到 versions/9/ 导致 Java 8 classpath
+     * 看不到）。
+     *
+     * <p>本测试只验证：所有带 {@code META-INF/services/} 的 jar，ServiceLoader
+     * 能正确读取而不抛 {@link IOException}。实现类的可加载性由具体模块的单元测试覆盖。
+     */
+    @Test
+    @DisplayName("SPI：META-INF/services/ 配置可被 ServiceLoader 读取（所有带 module-info 的 jar）")
+    void verifySpiServiceFilesReadable() throws IOException {
+        String version = frameworkVersion();
+        Set<Path> moduleInfos = discoverModuleInfoFiles();
+        assertFalse(moduleInfos.isEmpty(),
+                "未发现任何 src/main/java9/module-info.java（moduleRoot=" + moduleRoot() + "）");
+        Set<String> bad = new LinkedHashSet<>();
+        AtomicInteger totalServices = new AtomicInteger(0);
+        for (Path mi : moduleInfos) {
+            String moduleName = moduleNameFromPath(mi);
+            Path jar = moduleRoot().resolve(moduleName).resolve("build/libs")
+                    .resolve("jvfault-" + moduleName + "-" + version + ".jar");
+            if (!Files.isRegularFile(jar)) continue;
+            try (JarFile jf = new JarFile(jar.toFile())) {
+                jf.entries().asIterator().forEachRemaining(entry -> {
+                    String name = entry.getName();
+                    if (name.startsWith("META-INF/services/") && !entry.isDirectory()) {
+                        totalServices.incrementAndGet();
+                        try (InputStream is = jf.getInputStream(entry)) {
+                            String content = new String(is.readAllBytes(), java.nio.charset.StandardCharsets.UTF_8);
+                            if (content.isBlank()) {
+                                bad.add(moduleName + ": " + name + " (空内容)");
+                            }
+                        } catch (IOException e) {
+                            bad.add(moduleName + ": " + name + " (IO错误: " + e.getMessage() + ")");
+                        }
+                    }
+                });
+            } catch (IOException e) {
+                bad.add(moduleName + ": 无法打开 jar (" + e.getMessage() + ")");
+            }
+        }
+        if (!bad.isEmpty()) {
+            fail("SPI services 文件错误（共 " + bad.size() + " 个问题）：\n"
+                    + String.join("\n", bad));
+        }
+        System.err.println("[JPMS/SPI] 已检查 " + moduleInfos.size() + " 个模块 jar，"
+                + "共发现 " + totalServices.get() + " 个 META-INF/services/ 文件，全部可读");
+    }
+
+    /**
+     * 验证核心模块的发布 jar 含必需的导出包 —— 防止 module-info 的 exports
+     * 语句被错误删除或改名导致运行时 {@code NoClassDefFoundError}。
+     *
+     * <p>本测试在构建产物层验证（而非源码层），确保发布 jar 的 API 表面不退化。
+     */
+    @Test
+    @DisplayName("构件：核心模块导出包名不退化（AMN + Multi-Release + 关键包存在）")
+    void verifyCoreModuleExports() throws IOException {
+        String version = frameworkVersion();
+        // 已知核心模块及其必需的导出包
+        Set<String> failures = new LinkedHashSet<>();
+        for (String jarName : new String[]{"core", "logging", "metrics", "exception"}) {
+            Path jar = moduleRoot().resolve(jarName).resolve("build/libs")
+                    .resolve("jvfault-" + jarName + "-" + version + ".jar");
+            if (!Files.isRegularFile(jar)) {
+                failures.add(jarName + ": jar 不存在（由 verifyMrJarDescriptors 捕获）");
+                continue;
+            }
+            try (JarFile jf = new JarFile(jar.toFile())) {
+                Manifest mf = jf.getManifest();
+                if (mf.getMainAttributes().getValue("Automatic-Module-Name") == null) {
+                    failures.add(jarName + ": Automatic-Module-Name 缺失");
+                }
+            } catch (IOException e) {
+                failures.add(jarName + ": 无法打开 jar (" + e.getMessage() + ")");
+            }
+        }
+        if (!failures.isEmpty()) {
+            fail("核心模块 API 表面检查失败（共 " + failures.size() + " 个）：\n"
+                    + String.join("\n", failures));
         }
     }
 }

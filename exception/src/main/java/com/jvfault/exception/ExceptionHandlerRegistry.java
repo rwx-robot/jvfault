@@ -34,16 +34,11 @@ public class ExceptionHandlerRegistry {
                 method.setAccessible(true);
                 for (Class<? extends Throwable> type : ann.value()) {
                     byType.computeIfAbsent(type, k -> new ArrayList<>())
-                            .add(new Entry(handlerBean, method, distance(type)));
+                            .add(new Entry(handlerBean, method, 0)); // declaredDistance 永远为 0（自身类型）
                 }
             }
             clazz = clazz.getSuperclass();
         }
-    }
-
-    /** 注册时该异常类型在继承链上的距离（自身为 0） */
-    private int distance(Class<? extends Throwable> type) {
-        return 0;
     }
 
     /**
@@ -57,9 +52,8 @@ public class ExceptionHandlerRegistry {
             }
             int d = inheritanceDistance(e.getKey(), throwable.getClass());
             for (Entry entry : e.getValue()) {
-                int effective = d + entry.declaredDistance;
-                if (best == null || effective < best.effectiveDistance) {
-                    best = new Entry(entry.bean, entry.method, effective, effective);
+                if (best == null || d < best.effectiveDistance) {
+                    best = new Entry(entry.bean, entry.method, d);
                 }
             }
         }
@@ -87,17 +81,11 @@ public class ExceptionHandlerRegistry {
     private static class Entry {
         final Object bean;
         final Method method;
-        final int declaredDistance;
         final int effectiveDistance;
 
-        Entry(Object bean, Method method, int declaredDistance) {
-            this(bean, method, declaredDistance, declaredDistance);
-        }
-
-        Entry(Object bean, Method method, int declaredDistance, int effectiveDistance) {
+        Entry(Object bean, Method method, int effectiveDistance) {
             this.bean = bean;
             this.method = method;
-            this.declaredDistance = declaredDistance;
             this.effectiveDistance = effectiveDistance;
         }
     }
