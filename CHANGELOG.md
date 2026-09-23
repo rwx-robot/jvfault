@@ -7,6 +7,58 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ---
 
+## [v1.0.6] - CI 首次全绿（修复 4 类"只在干净环境暴露"的缺陷）（2026-09-23）
+
+> 本轮起 CI（GitHub Actions）连续为绿。此前所有失败都源于**只有干净环境才会触发**
+> 的缺陷 —— 本地因构建产物/镜像/时区已就位而看不出来。
+
+### Fixed
+- **logging**：`PlainTextFormatterTest` 时间戳正则不接受 `Z` 偏移。
+  `DateTimeFormatter` 的 `XXX` 在零偏移时按 ISO-8601 渲染为 `Z`（CI runner 为 UTC），
+  非零偏移渲染为 `+08:00`（本机 UTC+8）→ 本地过、CI 挂。
+  正则改为 `(?:[+-]\d{2}:?\d{2}|Z)`。
+- **transport-\***：`DockerContainer.ensureImage()` 用「stdout 是否为空」判断镜像
+  是否存在，但 `exec()` 合并了 stderr —— 镜像不存在时 docker 把
+  `Error response from daemon: No such image` 写到 stdout，判空为 false →
+  `hasImage()` 恒返回 true → 测试去 `docker run` 一个不存在的镜像 → 起不来 →
+  空转 2 分钟后 `@BeforeAll` 抛错，整个测试类失败（CI runner 无镜像，必现）。
+  改为**判退出码**：新增 `execCapture/execExitCode`；`start()` 亦校验 `docker run`
+  退出码，若失败但端口已有 broker 在监听则复用（`containerId` 留 null，
+  `close()` 不会误删外部容器）；`transport-redis` 的 `dockerAvailable()` 补显式判空。
+- **transport-\***：拿到 `JVFAULT_*_BOOTSTRAP` 后直接 `brokerUp = true`，不做可达性
+  探测。CI service 容器"端口已映射但应用未就绪"或本机未起 broker 时，
+  测试真连 → `TransportException` → 整个类失败。
+  新增 `isReachable(scheme://host:port)` TCP 探测（30s 重试窗口），不可达则
+  `brokerUp = false` 交由 `assumeTrue` 跳过；Kafka 的 `waitForBroker` 由"抛错"改为
+  "未就绪则跳过"。
+- **tests**：`:tests:test` 未依赖全量模块 jar。`JpmsModulePathSmokeTest`
+  遍历 38 个带 `module-info.java` 的模块校验各自的 jar，但 `:tests` 只声明了
+  3 个依赖 → 干净检出（CI 每次都是）时其余 ~35 个 jar 尚未产出 → 失败。
+  改为 `:tests:test.dependsOn(<每个子项目>:jar)`（任务路径字符串惰性解析）；
+  并让 `verifyMrJarDescriptors` 在"发现 0 个模块"时明确失败，避免 `moduleRoot()`
+  解析错时循环空转造成"假绿"。
+
+### Added
+- **ci**：新增 `release.yml` —— 推送 `v*` tag 时自动跑 `./gradlew jar`、从
+  CHANGELOG 提取该版本章节作为 release notes、创建 GitHub Release 并附加全部
+  构件（v1.0.5 已验证：40 个 jar 资产）。tag 含 `-rc/-alpha/-beta` 标记 prerelease。
+- **ci**：`ci.yml` 增加 `concurrency`（同 ref 互斥，自动取消旧 run）、
+  `permissions: contents: read`（最小权限）、`tags: ['v*']` 触发、
+  JaCoCo 报告上传、`ubuntu-22.04` 固定版本。
+- **build**：`check.dependsOn(jacocoTestReport)`，各模块构建时产出覆盖率 HTML 报告。
+
+### Notes
+- **CI broker 覆盖**：redis / rabbitmq / nats / mosquitto 以 GitHub service 容器接入；
+  gRPC 走本机回环。Kafka 暂未纳入 CI（KRaft 冷启动 + 缺少可靠的 service health check
+  会让 `Initialize containers` 误判失败），其集成路径由本地 + Docker 通道覆盖。
+- 新增 skill `gradle-jpms-mrjar`：沉淀「Gradle 多模块 Java 8 基线 + JPMS 多版本 JAR」
+  的做法与 6 个高频陷阱。
+
+### Changed
+- **build**：构件版本 `jvfaultVersion` 由 `1.0.5` 升到 `1.0.6`。
+
+---
+
 ## [v1.0.5] - JPMS 回归测试加固（消除静默失败）（2026-09-23）
 
 ### Fixed
