@@ -27,6 +27,12 @@ subprojects {
         archivesName = "jvfault-${project.name}"
     }
 
+    // 让每个子模块在 check 时产出 jacocoTestReport（HTML 报告落到 build/reports/jacoco/）。
+    // 不放进 test chain —— jacoco 仅作覆盖率可视化，不影响测试通过判定。
+    tasks.named("check").configure {
+        dependsOn("jacocoTestReport")
+    }
+
     // JPMS：构件写入 Automatic-Module-Name（Java 8 侧）；
     // 若模块提供 src/main/java9/module-info.java，则再打**多版本 JAR**（Java 9+ 侧），
     // 描述符置于 META-INF/versions/9/、manifest 置 Multi-Release: true。

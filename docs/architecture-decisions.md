@@ -10,13 +10,14 @@
 
 ## ADR-002: JDK 编译策略
 - **状态**: 已采纳
-- **决策**: 构建统一运行在 JDK 21 上；框架模块默认 `--release 8`（2015 基线），AI 时代模块（ai/rag/mcp）在各自 build.gradle.kts 中提升为 `--release 17`。
-- **影响**: 早期模块保持最大兼容性；晚期模块可用 JDK 11+ API（如 java.net.http.HttpClient）。
+- **决策**: 构建统一运行在 JDK 21 上；框架模块默认 `--release 8`（2015 基线），AI 时代与合规/迁移模块（ai / rag / mcp / compliance / migration）在各自 `build.gradle.kts` 中提升为 `--release 17`。
+- **影响**: 早期模块保持最大兼容性；晚期模块可用 JDK 11+ API（如 `java.net.http.HttpClient`）。每个模块的实际字节码主版本号在 `verifyBytecodeVersion` 测试中验证。
 
-## ADR-003: 不使用 module-info.java（v0.x 阶段）
-- **状态**: 已采纳
+## ADR-003: 不使用 module-info.java（v0.x 阶段）→ 已被 ADR-010 替代
+- **状态**: ~~已采纳~~ **已弃用**（2026-09-22 由 ADR-010 取代）
 - **背景**: 早期草稿包含 module-info.java，但与 `--release 8` 基线冲突（JPMS 自 JDK 9 起）。
 - **决策**: v0.x 阶段移除 module-info；JPMS 支持推迟到 JDK 11+ 纪元的模块（若需要）。
+- **后续**: 见 ADR-010。
 
 ## ADR-004: BeanPostProcessor 作为容器扩展点
 - **状态**: 已采纳 (2026-09-19)
@@ -59,3 +60,25 @@
   示例（examples/）作为框架构建的普通子模块随仓库分发；
   monorepo 仅保留 Agent 工作区与跨项目材料。
 - **影响**: 单仓库自包含：构建、测试、示例一条命令完成。
+
+## ADR-010: JPMS 多版本 JAR —— Java 8 + Java 9+ 双向兼容
+- **状态**: 已采纳 (2026-09-22 ~ 2026-09-23)
+- **背景**: Java 9 起引入 JPMS（Java Platform Module System），消费者用 `requires com.jvfault.core` 期望命名模块；但框架主代码须保留 Java 8 基线（最大兼容性），而 `module-info.java` 只能用 `--release 9+` 编译。两者冲突。
+- **选项**:
+  1. **放弃 Java 8 基线**：直接用 `--release 9+`，消费者只需 named module；最简单但损失 Java 8 用户。
+  2. **放弃 JPMS**：消费者只能按自动模块名引用；简单但失去了命名模块的依赖显式化、访问封装等 JPMS 收益。
+  3. **多版本 JAR（multi-release JAR）**：每个构件里同时存在 Java 8 主类（`major version: 52`）和 `META-INF/versions/9/module-info.class`（major 53）；Java 8 消费者看自动模块名，Java 9+ 消费者看命名模块。
+- **决策**: 采用 **选项 3：多版本 JAR**。
+  - 根 `build.gradle.kts` 在每个子项目中：① manifest 写入 `Automatic-Module-Name: com.jvfault.<name>`（Java 8 侧）；② 若 `src/main/java9/module-info.java` 存在则注册 `compileJava9ModuleInfo` 任务（`--release 9` + `--patch-module X=<mainClasses>` + `--module-path=<dep jars>`）；③ jar 把 `META-INF/versions/9/` 路径加入；④ manifest 置 `Multi-Release: true`。
+  - **关键时间陷阱**：`subprojects {}` 在子项目 `dependencies {}` 之前执行 → `compileClasspath.allDependencies` 为空 → `upstreamJarTasks` 为空。**MR-JAR 注册必须放在 `afterEvaluate` 块中**。
+  - **保留字陷阱**：项目名是 Java 关键字时（如 `native`），自动模块名不能用 `com.jvfault.native` —— 根 build 里加 `when (project.name) { "native" -> "com.jvfault.nativeimage" }` 特殊映射。
+  - **三方 jar 自动模块名勘正**：`io.grpc:grpc-api` → `io.grpc`；`io.lettuce:lettuce-core` → `lettuce.core`；`io.nats:jnats` → `io.nats.jnats`；`org.apache.kafka:kafka-clients` → `kafka.clients`（无 manifest 属性时按文件名派生）。`java --module-path <jar> --describe-module <name>` 可验证。
+  - **空包导出**：`exports com.jvfault.X` 必须有实际源码，否则 javac 报"package empty"。例：`:security` 只导出 `.crypto/.guard/.jwt`，不导出顶层空包。
+- **回归**：`tests/JpmsModulePathSmokeTest` 6 例，覆盖：
+  - 源码 module-info.java `module X.Y.Z` 与项目 `Automatic-Module-Name` 一致
+  - 每个 MR-JAR 描述符完整（AMN + Multi-Release + versions/9/module-info.class）
+  - `getVersion()` 在 classpath 与 module path 下返回构建期版本
+  - IoC 容器在 classpath 形态下仍可启动（Java 8 兼容）
+  - 当前测试模块标识可读（命名 / 未命名均可）
+  - 12 个 examples/v* 目录 + Application 主类自检
+- **影响**: 39 个模块 → 38 个含 MR-JAR（`tests` / `examples` 非业务构件无 MR-JAR 必要）；Java 8 与 Java 9+ 消费者双向兼容；产物 `major version` 仍是 52（Java 8 基线保留）。

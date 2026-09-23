@@ -112,3 +112,11 @@ jobs:
           name: test-reports
           path: '**/build/reports/tests/test'
           if-no-files-found: ignore
+
+      - name: Upload JaCoCo coverage reports
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: jacoco-coverage
+          path: '**/build/reports/jacoco'
+          if-no-files-found: ignore
