@@ -31,7 +31,16 @@ subprojects {
     // 若模块提供 src/main/java9/module-info.java，则再打**多版本 JAR**（Java 9+ 侧），
     // 描述符置于 META-INF/versions/9/、manifest 置 Multi-Release: true。
     // 主代码仍以 --release 8 编译，Java 8 基线与 JPMS 兼容性兼得。
-    val moduleName = "com.jvfault." + project.name.replace('-', '.')
+    // 模块名优先 ext.moduleName，其次按特殊表（项目名是保留字时），默认 com.jvfault.<name>
+    val moduleName: String = run {
+        val fromExtra = project.extra.properties["moduleName"] as String?
+        if (fromExtra != null) return@run fromExtra
+        when (project.name) {
+            // 项目名是 Java 保留字或与包名不符的特殊情况
+            "native" -> "com.jvfault.nativeimage"
+            else -> "com.jvfault." + project.name.replace('-', '.')
+        }
+    }
     val jarTask = tasks.named<Jar>("jar")
     val moduleInfo9 = file("src/main/java9/module-info.java")
     jarTask.configure {
@@ -42,39 +51,51 @@ subprojects {
             }
         }
     }
+    // 项目依赖在子项目脚本执行后才被加入 compileClasspath。
+    // 故把 MR-JAR 注册逻辑延后到 afterEvaluate — 否则 upstreamJarTasks 为空。
+    afterEvaluate {
     if (moduleInfo9.exists()) {
         val mainClasses = extensions.getByType<org.gradle.api.tasks.SourceSetContainer>()
             .getByName("main").output.classesDirs
-        // 依赖须以「JAR」形态上 module path（项目依赖默认解析为 classes 目录，无模块描述符）
-        val deps = configurations.getByName("compileClasspath")
-        val modulePath = deps.incoming.artifactView {
-            attributes {
-                attribute(
-                    org.gradle.api.attributes.LibraryElements.LIBRARY_ELEMENTS_ATTRIBUTE,
-                    objects.named(
-                        org.gradle.api.attributes.LibraryElements::class.java,
-                        org.gradle.api.attributes.LibraryElements.JAR
-                    )
-                )
+        // 上游 project 依赖：取其 jar 任务输出（保证 jar 在编译 module-info 前已经写出，
+        // 否则无模块描述符）。三方 jar（slf4j / caffeine 等）走自动模块名。
+        val compileClasspath = configurations.getByName("compileClasspath")
+        val allDeps = compileClasspath.allDependencies.toList()
+        val upstreamJarTasks: List<org.gradle.api.tasks.bundling.Jar> = allDeps
+            .filterIsInstance<org.gradle.api.artifacts.ProjectDependency>()
+            .mapNotNull { pdep: org.gradle.api.artifacts.ProjectDependency ->
+                val depPath = pdep.dependencyProject.path
+                findProject(depPath)?.tasks?.findByName("jar") as org.gradle.api.tasks.bundling.Jar?
             }
-        }.files
+        // 三方 jar：用独立 configuration（不在 compileClasspath 解析时锁定），仅模块信息编译期使用
+        val modulePathConfig = configurations.create("compileJava9ModulePath")
+        modulePathConfig.isCanBeResolved = true
+        modulePathConfig.isCanBeConsumed = false
+        modulePathConfig.extendsFrom(compileClasspath)
+        // module path = 上游项目 jar + 三方 jar
+        val modulePath: org.gradle.api.file.FileCollection = files(upstreamJarTasks.flatMap { it.outputs.files })
+            .plus(modulePathConfig)
         val compileModuleInfo9 = tasks.register<JavaCompile>("compileJava9ModuleInfo") {
-            source(moduleInfo9)
+            source(fileTree(moduleInfo9.parent) { include("module-info.java") })
             destinationDirectory.set(layout.buildDirectory.dir("classes/java9"))
             classpath = files()
             options.release.set(9)
             options.encoding = "UTF-8"
-            options.compilerArgs.addAll(listOf(
-                "--patch-module", moduleName + "=" + mainClasses.asPath,
-                "--module-path", modulePath.asPath
-            ))
+            options.compilerArgs.add("--patch-module")
+            options.compilerArgs.add(moduleName + "=" + mainClasses.asPath)
+            options.compilerArgs.add("--module-path")
+            options.compilerArgs.add(modulePath.asPath)
             dependsOn(tasks.named("classes"))
+            upstreamJarTasks.forEach { jarDep: org.gradle.api.tasks.bundling.Jar ->
+                dependsOn(jarDep)
+            }
         }
         jarTask.configure {
             from(compileModuleInfo9.flatMap { it.destinationDirectory }) {
                 into("META-INF/versions/9")
             }
         }
+    }
     }
 
     repositories {

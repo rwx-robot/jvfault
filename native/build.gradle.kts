@@ -1,6 +1,7 @@
 /**
  * jvfault-native - GraalVM 原生镜像支持
  * 对应 roadmap v0.10.0 (2024)
+ * JPMS：项目名 'native' 是 Java 保留字，故模块名取 com.jvfault.nativeimage（见根 build.gradle.kts）
  */
 
 dependencies {
