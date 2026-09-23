@@ -6,7 +6,7 @@
 [![Java](https://img.shields.io/badge/Java-8%2B-orange.svg)](https://openjdk.org/)
 [![Gradle](https://img.shields.io/badge/Gradle-8.x-green.svg)](https://gradle.org/)
 [![Tests](https://img.shields.io/badge/tests-269%20passing-brightgreen.svg)](#构建与测试)
-[![CI](https://img.shields.io/badge/CI-passing-brightgreen.svg)](.github/workflows/ci.yml)
+[![CI](https://github.com/rwx-robot/jvfault/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/rwx-robot/jvfault/actions/workflows/ci.yml)
 [![License](https://img.shields.io/badge/license-Apache--2.0-blue.svg)](LICENSE)
 [![Version](https://img.shields.io/badge/release-v1.0.6-blue.svg)](#)
 
@@ -22,10 +22,7 @@
 | 传输适配 | tcp / grpc / kafka / redis / rmq / nats / mqtt（**全部真实集成**：broker 或 netty 回环） |
 | JPMS | **38 个模块** 提供多版本 JAR 的 `META-INF/versions/9/module-info.class`（Java 8 与 9+ 双向兼容） |
 | 构建 JVM | 必须用 JDK 21 作 Gradle JVM（`JAVA_HOME=$(/usr/libexec/java_home -v 21)`） |
-
-[![Java](https://img.shields.io/badge/Java-8%2B-orange.svg)](https://openjdk.org/)
-[![Gradle](https://img.shields.io/badge/Gradle-8.x-green.svg)](https://gradle.org/)
-[![Tests](https://img.shields.io/badge/tests-269%20passing-brightgreen.svg)](#构建与测试)
+| CI | GitHub Actions：5 个真实 broker（redis / kafka / rabbitmq / nats / mosquitto）+ gRPC 回环；18 个传输集成测试在 CI 上实跑 |
 
 ## 快速开始
 
@@ -95,6 +92,25 @@ tests       跨模块端到端套件（Jetty + JWT）
 2. 本地 Docker 容器（`redis:7.2-alpine`、`apache/kafka:3.7.0` KRaft 单节点、`rabbitmq:3-management`、
    `nats:2.10-alpine`、`eclipse-mosquitto:1.6`）
 3. 两者都不可用 → 该集成测试跳过（不影响构建绿）
+
+环境变量指向的 broker 会先做 **TCP 可达性探测**（30s 重试窗口），不可达则跳过 ——
+这样 CI service 容器处于「端口已映射但应用未就绪」的窗口期时不会把构建拖红。
+
+CI 上 **5 个 broker 全部以真实 service 容器接入**（redis / kafka / rabbitmq / nats / mosquitto），
+gRPC 走本机回环，因此 **18 个传输集成测试在 CI 上真实执行**（不再跳过）。
+Kafka 的 service 健康检查必须写全路径 `/opt/kafka/bin/kafka-broker-api-versions.sh`
+（该脚本不在镜像 PATH 上，写裸命令会让容器被判 unhealthy）。
+
+### 本地复现 CI 环境
+
+CI runner 是 **UTC**，本地通常是 UTC+8 —— 时间戳相关断言可能在本地过、CI 挂。
+改完时间/日期相关代码后，用下面命令复验：
+
+```bash
+TZ=UTC ./gradlew clean build --no-daemon --no-build-cache
+```
+
+`--no-build-cache` 是为了避免缓存命中掩盖问题。
 
 gRPC 无需外部服务：服务端以 `grpc-netty` 绑定随机端口（本机回环），集成测试直接与之通信。
 
