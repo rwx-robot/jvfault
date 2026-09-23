@@ -7,17 +7,19 @@ on:
   pull_request:
     branches: [ main ]
 
-# 简化版 CI（排查中）：无 concurrency、无 permissions 收紧、无 service
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
 jobs:
   build:
     runs-on: ubuntu-22.04
-
-    env:
-      # 不设置 JVFAULT_*_BOOTSTRAP —— 让 transport-* 集成测试走 Docker 检测路径，
-      # 检测失败时 assumeTrue 跳过（避免 CI 上 @BeforeAll 抛错让整 class fail）。
-      # 在本地 + Docker 通道（broker 真起）下，测试正常跑过。
-      :
-
+    # 简化版 CI：无 service（GitHub Actions runner 拉镜像不可靠）
+    # —— transport-* 集成测试因无 broker 自动 skip（assumeTrue），
+    # 其他 269 个测试不受影响。
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-java@v4
@@ -25,7 +27,7 @@ jobs:
           distribution: temurin
           java-version: '21'
       - uses: gradle/actions/setup-gradle@v3
-      - name: Build and test (no service containers)
+      - name: Build and test
         run: ./gradlew build --no-daemon
       - name: Verify publishing to Maven Local
         run: ./gradlew publishToMavenLocal --no-daemon
@@ -35,4 +37,11 @@ jobs:
         with:
           name: test-reports
           path: '**/build/reports/tests/test'
+          if-no-files-found: ignore
+      - name: Upload JaCoCo coverage reports
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: jacoco-coverage
+          path: '**/build/reports/jacoco'
           if-no-files-found: ignore
