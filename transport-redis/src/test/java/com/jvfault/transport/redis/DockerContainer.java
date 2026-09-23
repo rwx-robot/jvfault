@@ -43,17 +43,22 @@ final class DockerContainer implements AutoCloseable {
     }
 
     private void ensureImage() throws IOException, InterruptedException {
-        String status = exec("docker", "image", "inspect", "--format", "{{.Id}}", image).trim();
-        if (status.isEmpty()) {
+        ensureImage(image);
+    }
+
+    static void ensureImage(String image) throws IOException, InterruptedException {
+        if (!hasImage(image)) {
             throw new IllegalStateException("本地无镜像 " + image + "，请先 docker pull");
         }
     }
 
-    static void ensureImage(String image) throws IOException, InterruptedException {
-        String status = exec("docker", "image", "inspect", "--format", "{{.Id}}", image).trim();
-        if (status.isEmpty()) {
-            throw new IllegalStateException("本地无镜像 " + image + "，请先 docker pull");
-        }
+    /**
+     * 镜像是否已存在于本地。
+     * <p>注意：{@code exec} 在退出码非 0 时返回空串，因此用「输出非空」判断
+     * 即可正确区分「镜像存在」与「No such image」。
+     */
+    static boolean hasImage(String image) throws IOException, InterruptedException {
+        return !exec("docker", "image", "inspect", "--format", "{{.Id}}", image).isEmpty();
     }
 
     @Override
@@ -68,8 +73,9 @@ final class DockerContainer implements AutoCloseable {
 
     static boolean dockerAvailable() {
         try {
-            exec("docker", "version");
-            return true;
+            // exec 在非 0 退出码时返回空串 —— 需显式判空，
+            // 否则 daemon 未启动也会被判为"可用"。
+            return !exec("docker", "version").isEmpty();
         } catch (Exception e) {
             return false;
         }
