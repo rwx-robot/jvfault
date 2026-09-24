@@ -69,6 +69,7 @@ class BuildBaselineConsistencyTest {
         EXPECTED.put("compliance", 17);
         EXPECTED.put("migration", 17);
         EXPECTED.put("virtualthreads", 21);
+        EXPECTED.put("spring-boot-starter", 21);   // 依赖 Spring Boot 3（要求 17+），当前 JDK 21
         // —— 非发布产物：不进 README 清单 ——
         EXPECTED.put("tests", 17);                 // 测试套件本身
         EXPECTED.put("examples/v0.8.0", 21);       // 依赖 virtualthreads 的示例
