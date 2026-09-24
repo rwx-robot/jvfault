@@ -6,7 +6,7 @@
 
 [![Java](https://img.shields.io/badge/Java-8%2B-orange.svg)](https://openjdk.org/)
 [![Gradle](https://img.shields.io/badge/Gradle-8.x-green.svg)](https://gradle.org/)
-[![Tests](https://img.shields.io/badge/tests-269%20passing-brightgreen.svg)](#构建与测试)
+[![Tests](https://img.shields.io/badge/tests-274%20passing-brightgreen.svg)](#构建与测试)
 [![CI](https://github.com/rwx-robot/jvfault/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/rwx-robot/jvfault/actions/workflows/ci.yml)
 [![License](https://img.shields.io/badge/license-Apache--2.0-blue.svg)](LICENSE)
 [![Version](https://img.shields.io/badge/release-v1.0.8-blue.svg)](#)
@@ -17,9 +17,9 @@
 
 | 维度 | 现状 |
 |------|------|
-| 模块 | 39 个（38 个含测试） |
+| 模块 | 39 个（**全部 39 个均含测试**） |
 | 版本示例 | 12 个（v0.1.0 → v1.0.0 每版本一个可运行示例） |
-| 测试 | **269 个，0 失败 0 跳过**（含 6 例 JPMS 多版本 JAR 回归） |
+| 测试 | **274 个，0 失败**（含 6 例 JPMS 多版本 JAR 回归；无 broker 环境下部分集成测试跳过，CI 全绿） |
 | 传输适配 | tcp / grpc / kafka / redis / rmq / nats / mqtt（**全部真实集成**：broker 或 netty 回环） |
 | JPMS | **38 个模块** 提供多版本 JAR 的 `META-INF/versions/9/module-info.class`（Java 8 与 9+ 双向兼容） |
 | 构建 JVM | 必须用 JDK 21 作 Gradle JVM（`JAVA_HOME=$(/usr/libexec/java_home -v 21)`） |
@@ -28,7 +28,7 @@
 ## 快速开始
 
 ```bash
-# 构建全部 39 个模块 + 12 个版本示例（38 个模块含测试，共 269 个测试）
+# 构建全部 39 个模块 + 12 个版本示例（39 个模块均含测试，共 274 个测试）
 JAVA_HOME=$(/usr/libexec/java_home -v 21) ./gradlew build
 
 # 单模块
