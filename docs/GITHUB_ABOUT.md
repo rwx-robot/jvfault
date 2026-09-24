@@ -6,19 +6,19 @@ GitHub 仓库的 "About" 字段建议设置（限 350 字符以内；下面三�
 
 ## 候选 A · 极简（中文 · 150 字内，强烈推荐）
 
-> **现代模块化 Java 框架**：IoC 容器 + 模块系统内核，Web / 安全 / 合规 / 可观测性 / 微服务传输 / AI 一体化。**JDK 8 基线**，零 Spring / Kotlin 依赖；38 个模块 / 269 测试 / 38 个 MR-JAR 双向兼容 Java 8 与 9+。
+> **现代模块化 Java 框架**：IoC 容器 + 模块系统内核，Web / 安全 / 合规 / 可观测性 / 微服务传输 / AI 一体化。**JDK 8 基线**，零 Spring / Kotlin 依赖；39 个模块 / 274 测试 / 38 个 MR-JAR 双向兼容 Java 8 与 9+。
 
 ---
 
 ## 候选 B · 平衡（中文 · 220 字）
 
-> 注解驱动、模块化、纯 Java 实现的现代应用框架。**基线 JDK 8**（`--release 8` 编译），遵循 JSR-330 / JSR-250 / SPI 标准，**无 Spring / Kotlin 依赖**。38 个模块覆盖 IoC、AOP、Web（Servlet/Reactive）、安全、合规、可观测性、7 套真实微服务传输、12 个版本示例；38/40 主构件带多版本 JAR（`META-INF/versions/9/module-info.class`），Java 8 与 Java 9+ 双向兼容。
+> 注解驱动、模块化、纯 Java 实现的现代应用框架。**基线 JDK 8**（`--release 8` 编译），遵循 JSR-330 / JSR-250 / SPI 标准，**无 Spring / Kotlin 依赖**。39 个模块覆盖 IoC、AOP、Web（Servlet/Reactive）、安全、合规、可观测性、7 套真实微服务传输、12 个版本示例；38 个主构件带多版本 JAR（`META-INF/versions/9/module-info.class`），Java 8 与 Java 9+ 双向兼容。
 
 ---
 
 ## 候选 C · 详尽（中文 · 320 字，给 GitHub 主页看的人快速判断"是否值得点 star"）
 
-> **jvfault = 现代模块化 Java 框架架构**。IoC 容器 + 模块化系统为内核；上层覆盖 Web（Servlet 5 + Reactive）、安全（JWT/PBKDF2）、合规（RFC 7807 审计）、可观测性（Metrics/Tracing/Ops）、微服务传输（TCP/gRPC/Kafka/Redis/RMQ/NATS/MQTT——broker 真实集成）、AI 接入。设计风格借鉴主流注解驱动框架，但**只用 JDK 与少量成熟客户端库**；不引入 Spring、Kotlin 或其他语言生态。**38 个模块 / 269 测试全绿**；主代码 `--release 8`、Gradle JVM = JDK 21；**38/40 主构件带多版本 JAR**，Java 8 与 Java 9+ 命名模块双向兼容。
+> **jvfault = 现代模块化 Java 框架架构**。IoC 容器 + 模块化系统为内核；上层覆盖 Web（Servlet 5 + Reactive）、安全（JWT/PBKDF2）、合规（RFC 7807 审计）、可观测性（Metrics/Tracing/Ops）、微服务传输（TCP/gRPC/Kafka/Redis/RMQ/NATS/MQTT——broker 真实集成）、AI 接入。设计风格借鉴主流注解驱动框架，但**只用 JDK 与少量成熟客户端库**；不引入 Spring、Kotlin 或其他语言生态。**39 个模块 / 274 测试全绿**；主代码 `--release 8`、Gradle JVM = JDK 21；**38 个主构件带多版本 JAR**，Java 8 与 Java 9+ 命名模块双向兼容。
 
 ---
 

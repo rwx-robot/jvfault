@@ -11,7 +11,7 @@
 `jvfault` 是一个注解驱动的模块化纯 Java 框架，**完整实现且全部测试通过**：
 - 39 个框架模块 + 12 个版本示例（v0.1.0 - v1.0.0 每版本一个）
 - 13 个 git commit（每个版本一个）+ 12 个 tag（v0.1.0 ~ v1.0.0 全含）
-- **263 测试 0 失败 0 跳过**（含 7 个 Jetty+JWT 端到端 + 真实集成：3 redis + 3 kafka + 3 rabbitmq + 3 nats + 3 mqtt + 3 grpc）
+- **274 测试 0 失败**（含 7 个 Jetty+JWT 端到端 + 真实集成：3 redis + 3 kafka + 3 rabbitmq + 3 nats + 3 mqtt + 3 grpc；skip 数随本地 broker 浮动）
 - 40 个构件已实测发布到本地 m2（`./gradlew publishToMavenLocal`）
 - 远程仓库：`git@github.com:rwx-robot/jvfault.git`（仅 main 分支，身份 johnnynode <johnnynode@gmail.com>）
 
