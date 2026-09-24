@@ -11,12 +11,15 @@
 | 标签 | 发现 | 处置 | 预计减少 |
 |------|------|------|----------|
 | `delete` | `ExceptionHandlerRegistry.distance()` — 永远返回 0，死代码 | ✅ 已处理（commit `b3c2d91`） | ~10 行 |
-| `delete` | 历史版本示例模块 v0.1.0 ~ v0.7.0（保留 v0.8.0+ 即可） | 待 Ny 决定 | ~730 行 |
-| `delete` | `MeterRegistry` 接口（唯一实现 DefaultMeterRegistry，投机性桥接设计） | 待 Ny 决定 | ~28 行 |
-| `shrink` | `LogEntry.Builder`（110 行 builder，数据类仅 8 字段） | 待 Ny 决定 | ~70 行 |
-| `stdlib` | `DefaultMeterRegistry.toTags()` 手写循环（可用 stream/foreach） | 待 Ny 决定 | ~5 行 |
+| `delete` | 历史版本示例模块 v0.1.0 ~ v0.7.0（保留 v0.8.0+） | ✅ 已处理（**v1.0.10**） | ~730 行 + 7 个模块 |
+| `delete` | `MeterRegistry` 接口（唯一实现，投机性桥接设计） | ✅ 已处理（**v1.0.10**） | ~28 行 |
+| `shrink` | `LogEntry.Builder`（建议转 record） | ❌ **不采纳**：基线 `--release 8` 不支持 record；且非过度设计 | 0 |
+| `stdlib` | `DefaultMeterRegistry.toTags()`（建议改 stream） | ❌ **不采纳**：现有循环已是 Java 8 下最简，改 stream 更啰嗦 | 0 |
 
-**最大可删：~830 行**（主要是 11 个历史示例模块）
+> **v1.0.10 收口**：Ny 已按审计建议推进（`继续按照你的建议来审计`）。
+> 两条 `不采纳` 项均因 **`--release 8` 基线约束** —— 这条对外承诺优先于行数优化。
+
+**实删：~770 行 + 7 个示例模块**（均已落入 v1.0.10）
 
 ---
 
@@ -49,7 +52,7 @@ int effective = d + entry.declaredDistance; // declaredDistance 永远是 0
 
 ---
 
-## 待 Ny 决定
+## 处置明细（v1.0.10 已收口）
 
 ### `delete` 历史版本示例模块（v0.1.0 ~ v0.7.0）
 
@@ -138,11 +141,16 @@ for (int i = 0; i < keys.length; i++) tags.put(keys[i], values[i]);
 ## Net Summary
 
 ```
-已处理（commit b3c2d91）：ExceptionHandlerRegistry.distance() 死代码 ~10 行
-最大可删：11 个历史版本示例 ~730 行（需 Ny 同意）
-可选优化：MeterRegistry 接口 ~28 行 + LogEntry.Builder ~70 行 + toTags ~5 行
+—— v1.0.10 收口后 ——
+已处理：
+  - commit b3c2d91：ExceptionHandlerRegistry.distance() 死代码        ~10 行
+  - v1.0.10：删除 7 个历史示例模块 v0.1.0~v0.7.0                      ~730 行
+  - v1.0.10：删除 MeterRegistry 投机性接口                            ~28 行
+不采纳（已论证）：
+  - LogEntry.Builder 转 record      → 基线 --release 8 不支持，会破坏 Java 8 向下兼容
+  - toTags() 改 stream              → 现有循环已是 Java 8 下最简写法
 ─────────────────────────────────────────────────
-最大可删总计：~830 行
+实删总计：~770 行 + 7 个示例模块
 ```
 
 ---
