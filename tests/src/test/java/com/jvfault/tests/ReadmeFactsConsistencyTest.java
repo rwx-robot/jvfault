@@ -47,7 +47,7 @@ class ReadmeFactsConsistencyTest {
     private static final int EXPECTED_FRAMEWORK_MODULES = 40;
     private static final int EXPECTED_EXAMPLES = 5;
     private static final int EXPECTED_TRANSPORT = 7;
-    private static final int EXPECTED_MODULES_WITH_TESTS = 40;
+    private static final int EXPECTED_MODULES_WITH_TESTS = 39;
     private static final int EXPECTED_MR_JAR = 38;
     /**
      * 测试总数（badge + 维度表共用）。
@@ -132,7 +132,14 @@ class ReadmeFactsConsistencyTest {
     private int countModulesWithTests() throws IOException {
         int n = 0;
         for (String m : parseSettingsModules().get(0)) {
-            if (Files.isDirectory(projectRoot().resolve(m).resolve("src/test/java"))) n++;
+            Path testRoot = projectRoot().resolve(m).resolve("src/test/java");
+            if (!Files.isDirectory(testRoot)) continue;
+            // 必须是「有测试文件」，不能只看目录是否存在：
+            // `test` 模块有一个空的 src/test/java 目录（0 个 .java），
+            // 只判目录会把「全部 40 个均含测试」撑成假话。
+            try (java.util.stream.Stream<Path> files = Files.walk(testRoot)) {
+                if (files.anyMatch(p -> p.toString().endsWith(".java"))) n++;
+            }
         }
         return n;
     }
@@ -261,7 +268,7 @@ class ReadmeFactsConsistencyTest {
     }
 
     @Test
-    @DisplayName("含测试模块数：源码派生 40 == 常量 == README「全部 40 个均含测试」")
+    @DisplayName("含测试模块数：源码派生 39 == 常量 == README「39 个含测试」")
     void modulesWithTestsConsistent() throws IOException {
         int derived = countModulesWithTests();
         assertEquals(EXPECTED_MODULES_WITH_TESTS, derived,
@@ -271,8 +278,8 @@ class ReadmeFactsConsistencyTest {
         // 用常量而不是写死 "39" —— 否则加模块后这里会红（曾漏改过一次）
         assertTrue(cell.contains(String.valueOf(EXPECTED_MODULES_WITH_TESTS)),
                 "README 模块行未写 " + EXPECTED_MODULES_WITH_TESTS + "：" + cell);
-        assertTrue(cell.contains("全部") || cell.contains("均含"),
-                "README 模块行应明确「全部 39 个均含测试」，当前：" + cell);
+        assertTrue(cell.contains("含测试"),
+                "README 模块行应写明含测试的模块数，当前：" + cell);
     }
 
     @Test
