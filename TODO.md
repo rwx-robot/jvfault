@@ -1,6 +1,6 @@
 # jvfault TODO — 剩余工作清单
 
-> 最后更新：2026-09-25（对应 **v1.0.13**）
+> 最后更新：2026-09-27（对应 **v1.0.13 · 引擎现代化**）
 > 状态口径：✅ 已完成 / ⏸ 待 Ny 决策或外部凭据 / 🔧 技术债（可自主推进）
 
 ---
@@ -25,7 +25,13 @@
 ### 1️⃣ Sonatype OSS 发布（P1 · ⏸ 缺凭据）
 
 **现状**：`./gradlew publishToMavenLocal` 已验证可用；`maven-publish` 已为全部发布模块配置好 `pom`（名称/描述/Apache-2.0）。
-**阻塞**：需要 `sonatypeUsername` / `sonatypePassword` 与 `ossrh-staging-api`。
+**阻塞 / 待 Ny 提供的信息（填好后我负责补 `signing` + `maven-publish` 并跑 `./gradlew publish`）：**
+- [ ] **Sonatype 账号**：`sonatypeUsername` / `sonatypePassword`（旧 OSSRH `issues.sonatype.org` 或新 `central.sonatype.com` 账号）
+- [ ] **groupId 批准**：`com.jvfault` 这个命名空间需在 OSSRH 首次发布前申请并获批
+- [ ] **GPG 签名**：Maven Central 强制签名。需 GPG 私钥 + 公钥传到 keyserver；提供 `signing.keyId` / `signing.password` / `signing.secretKeyRingFile`（或改用 `signingInMemoryPgpKeys` 内联）
+- [ ] **staging 目标**：旧 OSSRH 用 `https://oss.sonatype.org/service/local/staging/deploy/maven2/`（配 `ossrh-staging-api`）；新 Central Portal 用 Portal API + snapshot 仓库
+- [ ] **POM 补全**：SCM 地址、开发者信息、CI 自动发布开关（当前仓库缺，需补到 `gradle.properties` 或 `build.gradle.kts`）
+- [ ] **本地已就绪**：`./gradlew publishToMavenLocal` 通过；`maven-publish` 已为全部发布模块配好 pom（名称/描述/Apache-2.0）
 **验收**：
 1. 配置凭据后 `./gradlew publish` 能推到 OSSRH staging
 2. staging 仓库 close → release 后，Maven Central 上能搜到 `com.jvfault:core:1.0.13`
@@ -101,6 +107,29 @@ Spring、WebFlux 等三方库；冒烟脚本 classpath 只有 jvfault 自身 + s
 
 Spring Boot 的自动配置并非 JPMS 友好；本模块按 classpath 适配器发布，
 与 `tests` 一样不进 MR-JAR。等 Spring 侧模块名稳定后再评估。
+
+---
+
+### 9️⃣ 引擎现代化：对齐主流 Java 框架 SDK（P2 · ✅ 本轮完成）
+
+用户要求「把引擎改过来，别人用什么 SDK 你给我用什么 SDK，不要再用 Java 8」——本轮落地：
+
+- **根基线 Java 8 → 17**：根 `build.gradle.kts` 的 `options.release` 由 `8` 改为 `17`，
+  对齐 **Spring Boot 3 / Jakarta EE 10** 的 floor；虚拟线程模块仍按 21 编译。
+  全部 40 模块 + 5 示例 `./gradlew build -x test` 通过。
+- **Caffeine 2.9.3 → 3.1.8**：`cache/build.gradle.kts`，与 Spring Boot 3 托管版本一致
+  （要求 Java 11+，Java 17 基线满足）；`CaffeineCache` 用法 2.x→3.x 完全兼容。
+- **validation 引擎换血**：自研的 JSR-380 子集反射引擎 →
+  **Jakarta Validation 3.0.2 + Hibernate Validator 8.0.1 + Jakarta EL（expressly 5.0.0）**，
+  即 Spring Boot 3 / Quarkus / Jakarta EE 同一套校验栈。删除自研 `constraint/*` 注解与反射引擎，
+  约束注解改用 `jakarta.validation.constraints.*`；保留 `Validator` / `ValidationEngine` /
+  `ConstraintViolation` / `ValidationException` 门面 API（已重写测试，12 个用例全绿）。
+- **README 去 Java 8 口径**：去掉「默认基线 JDK 8」起头，新增「对齐主流 SDK」小节；
+  移除已无用的 `scripts/java8-runtime-smoke`（基线不再是 8）。
+
+> 说明：Hibernate Validator 默认消息会随 JVM locale 本地化（如中文「不能为null」），
+> 框架测试已固定 `Locale.ENGLISH` 以保证断言稳定；自定义消息建议用命名占位符
+> `{min}`/`{max}` 等，位置占位符 `{0}`（属性名）是否被插值取决于校验 Provider 配置。
 
 ---
 

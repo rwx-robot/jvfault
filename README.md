@@ -1,10 +1,10 @@
 # jvfault Framework
 
 > **Modern Modular Java Framework Architecture** — 注解驱动、模块化、类型安全的纯 Java 框架。
-> 默认基线 JDK 8（`--release 8` 编译），遵循 JSR-330 / JSR-250 / SPI 标准，零外部框架依赖。
-> **注意**：AI 时代模块需 JDK 17、虚拟线程模块需 JDK 21 —— 详见下方「JDK 需求分层」。
+> 基线 **Java 17**（`--release 17` 编译，与 Spring Boot 3 / Jakarta EE 10 同款 floor），遵循 JSR-330 / JSR-250 / SPI 标准，仅依赖少量成熟主流 SDK。
+> **注意**：虚拟线程模块需 JDK 21，AI 时代模块为 JDK 17 —— 详见下方「JDK 需求分层」。
 
-[![Java](https://img.shields.io/badge/Java-8%2B-orange.svg)](https://openjdk.org/)
+[![Java](https://img.shields.io/badge/Java-17%2B-blue.svg)](https://openjdk.org/)
 [![Gradle](https://img.shields.io/badge/Gradle-8.x-green.svg)](https://gradle.org/)
 [![Tests](https://img.shields.io/badge/tests-287%20passing-brightgreen.svg)](#构建与测试)
 [![CI](https://github.com/rwx-robot/jvfault/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/rwx-robot/jvfault/actions/workflows/ci.yml)
@@ -13,7 +13,8 @@
 
 **jvfault** 是一个以 Java 标准库实现的模块化应用框架：IoC 容器 + 模块化系统为内核，
 上层覆盖 Web（Servlet/Reactive）、安全、合规、可观测性、微服务传输与 AI 接入。
-设计风格借鉴主流注解驱动框架，但**只用 JDK 与少量成熟客户端库**，不引入 Spring / Kotlin / 其他语言生态。
+设计风格借鉴主流注解驱动框架：**内核自研、外围能力直接复用业界事实标准 SDK**
+（Jakarta Validation + Hibernate Validator、Caffeine 3.x、Jackson、Reactor 等），不引入 Spring 全家桶 / Kotlin。
 
 | 维度 | 现状 |
 |------|------|
@@ -21,7 +22,7 @@
 | 版本示例 | 5 个（v0.8.0 → v1.0.0 每版本一个可运行示例） |
 | 测试 | **287 个，0 失败**（含 8 例 JPMS 多版本 JAR 回归；无 broker 环境下部分集成测试跳过，CI 全绿） |
 | 传输适配 | tcp / grpc / kafka / redis / rmq / nats / mqtt（**全部真实集成**：broker 或 netty 回环） |
-| JPMS | **38 个模块** 提供多版本 JAR 的 `META-INF/versions/9/module-info.class`（Java 8 与 9+ 双向兼容） |
+| JPMS | **38 个模块** 提供多版本 JAR 的 `META-INF/versions/9/module-info.class`（Java 17 基线、9+ 模块可用） |
 | 构建 JVM | 必须用 JDK 21 作 Gradle JVM（`JAVA_HOME=/Library/Java/JavaVirtualMachines/jdk-21.0.11.jdk/Contents/Home`） |
 | CI | GitHub Actions：5 个真实 broker（redis / kafka / rabbitmq / nats / mosquitto）+ gRPC 回环；18 个传输集成测试在 CI 上实跑 |
 
@@ -57,7 +58,7 @@ JAVA_HOME=/Library/Java/JavaVirtualMachines/jdk-21.0.11.jdk/Contents/Home ./grad
 core        IoC 容器、模块系统、类路径扫描、引导
 aop         @Aspect 切面、execution pointcut、JDK/ByteBuddy 代理
 config      Environment、YAML/Properties/JSON、@Value/@ConfigurationProperties
-validation  JSR-380 风格约束校验（级联 + 自定义校验器 SPI）
+validation  Jakarta Validation + Hibernate Validator 约束校验（级联 + 自定义校验器 SPI）
 exception   RFC 7807 ProblemDetail、@ExceptionHandler 注册表
 logging     结构化 JSON 日志、MDC trace 透传、动态级别
 web         @Controller 路由、Guard/拦截器管道、参数绑定
@@ -73,13 +74,13 @@ transport-{tcp,grpc,kafka,redis,nats,rmq,mqtt}   传输适配（7 个均含真�
 tracing     W3C traceparent、Span/Tracer
 metrics     Counter/Timer/Gauge/Summary
 scheduling  @Scheduled + 6 字段 Cron
-cache       @Cacheable/@CacheEvict、多级缓存
+cache       @Cacheable/@CacheEvict、多级缓存（Caffeine 3.x）
 plugin      插件 SPI：隔离 ClassLoader、依赖拓扑、生命周期
 apt         编译期 @Module 元数据生成（META-INF/jvfault/modules.txt）
 aot/native  GraalVM 反射配置生成与 native 提示
 ai/rag/mcp              ChatModel SPI、向量检索、MCP 服务器                 (JDK 17)
 compliance/migration    合规审计脱敏、迁移分析                               (JDK 17)
-ops                     健康检查、指标端点、优雅关闭                          (JDK 8)
+ops                     健康检查、指标端点、优雅关闭                          (JDK 17)
 virtualthreads          虚拟线程执行器与结构化并发                            (JDK 21)
 spring-boot-starter      Spring Boot 3 自动配置桥接（可选插件，不传递 Spring 依赖）   (JDK 21)
 test        JUnit 5 扩展 (@TestModule + @Autowired)
@@ -88,59 +89,49 @@ tests       跨模块端到端套件（Jetty + JWT）
 
 ## JDK 需求分层
 
-框架**默认**以 `--release 8` 编译（根 `build.gradle.kts`），但**时代特性模块**需要更高 JDK ——
-它们在各自的 `build.gradle.kts` 里覆盖了 `options.release`：
+框架**默认**以 `--release 17` 编译（根 `build.gradle.kts`），与 **Spring Boot 3 / Jakarta EE 10** 同一 floor；
+**虚拟线程模块**需要 JDK 21 —— 它们在各自的 `build.gradle.kts` 里覆盖了 `options.release`：
 
 | 需求 JDK | 模块 | 依据 |
 |:--------:|------|------|
-| **8**（默认） | core、web、security、logging、metrics、transport-\*、cache、scheduling 等**其余全部** | 根 `build.gradle.kts:139` → `options.release = 8` |
-| **9** | 仅 `module-info.java` 编译层（产物落在 MR-JAR 的 `META-INF/versions/9/`） | `build.gradle.kts:88`，JPMS 描述符自 JDK 9 起可用 |
-| **17** | `ai`、`rag`、`mcp`、`compliance`、`migration` | 各自 `build.gradle.kts` 覆盖为 `options.release = 17` |
-| **21** | `virtualthreads` | 依赖 Project Loom 虚拟线程 API，无法降级 |
-| **21** | `spring-boot-starter` | 依赖 Spring Boot 3（要求 17+），当前按 JDK 21 编译 |
-| **21** | `examples/v0.8.0`（示例，不发布） | 依赖 `virtualthreads` |
-| **17** | `tests`（测试套件，不发布） | JUnit 5 链式断言需要 |
+| **17**（默认） | core、web、security、logging、metrics、transport-\*、cache、scheduling、validation 等**其余全部** | 根 `build.gradle.kts` → `options.release = 17` |
+| **9** | 仅 `module-info.java` 编译层（产物落在 MR-JAR 的 `META-INF/versions/9/`） | JPMS 描述符自 JDK 9 起可用 |
+| **17** | `ai`、`rag`、`mcp`、`compliance`、`migration`、`tests` | 各自 `build.gradle.kts`（与默认一致） |
+| **21** | `virtualthreads`、`spring-boot-starter`、`examples/v0.8.0` | 依赖 Project Loom 虚拟线程 API / Spring Boot 3（按 21 编译） |
 
 > 全模块**聚合 Javadoc** 站点：`https://jvfault.github.io/jvfault/`（由 `.github/workflows/pages.yml`
 > 在 push 到 main 且 Java/构建配置变更时自动构建并部署到 GitHub Pages）。
 > 本地预览：`./gradlew javadocAggregate` → 产物在 `build/docs/javadoc-aggregate`。
 
-### 运行时实测（Java 8 JVM 字节码级验证）
+### 对齐主流 SDK（别人用什么，我们就用什么）
 
-冒烟脚本（`scripts/java8-runtime-smoke/run.sh`）在**真正的 Java 8 JVM** 上做两层验证：
+框架内核坚持「纯 Java + 标准 API」的取向，但**依赖选型直接对齐主流 Java 框架的默认栈**，
+不重复造轮子、不抱守 Java 8 时代的旧库：
 
-1. **逐 jar 字节码 major version 扫描**（主验证，覆盖全部 40 模块）：直接读每个
-   `jvfault-*.jar` 内 `.class` 文件头，断言各模块**自身**类的字节码 ≤ 其声明基线
-   （见上方「JDK 需求分层」表）。这一步**不依赖任何三方库**，因此
-   `platform-reactive`/`openapi`/`native`/`aot`/`graphql`/`sse` 这 6 个之前因缺三方依赖而
-   「静默未验证」的模块，**也都已被逐一验证**——它们自身字节码均为 Java 8（major 52）。
-2. **Java 8 基线模块的链接加载**：对声明基线为 Java 8 的模块，在 Java 8 上真正
-   `Class.forName` 加载，只有 `com.jvfault.*` 类出现 `UnsupportedClassVersionError`
-   才算基线违规（三方依赖缺失不计）。
+| 能力 | 选型 | 说明 |
+|------|------|------|
+| 校验引擎 | **Jakarta Validation 3.0** + **Hibernate Validator 8** | `validation` 模块直接委托标准 API + 主流 Provider（Spring Boot 3 / Quarkus / Jakarta EE 同款），约束注解用 `jakarta.validation.constraints.*` |
+| L2 缓存 | **Caffeine 3.1.x** | 与 Spring Boot 3 托管版本一致（要求 Java 11+，本框架 Java 17 基线满足） |
+| 日志门面 | SLF4J 2.0.x | 主流默认 |
+| JSON | Jackson 2.17.x | 主流默认 |
+| 响应式 | Reactor 3.6.x | Spring WebFlux 同款 |
+| GraphQL | graphql-java 21.5 | 社区主流 |
+| AOP 字节码 | ByteBuddy 1.14.x | Spring / Mockito 同款 |
 
-结论：
+即：**内核自研**（IoC / 模块化 / 路由 / 传输），**外围能力直接复用业界事实标准 SDK**。
+历史包袱说明：早期 `validation` 是自研的 JSR-380 子集（反射扫描 + 自研约束注解），
+现已替换为标准 Jakarta Validation + Hibernate Validator；`cache` 的 Caffeine 也已从 2.9.3 升到 3.1.x。
 
-- 全部 40 个模块自身字节码均 ≤ 各自声明基线 ✅（Java 8 模块 = 52，JDK 17 模块 = 61，JDK 21 模块 = 65）
-- 声明基线为 Java 8 的模块在 Java 8 JVM 上能完整加载链接 ✅
-- 声明基线为 JDK 17/21 的模块（`ai`/`rag`/`mcp`/`compliance`/`migration`/`tests`/`virtualthreads`/`spring-boot-starter`）
-  在 Java 8 上预期无法加载——**设计如此，不是缺陷**（虚拟线程、`java.net.http.HttpClient` 等 API 在 Java 8 上本就不存在）
-
-> **选型提示**：若运行时是 Java 8，不要引入上面 release ≥ 17 的模块。
-> 另有两点**第三方依赖**带来的运行时下限（非本框架字节码约束）：
-> - `openapi` 自身是 Java 8 字节码，但运行需 `snakeyaml 2.2`（Java 9 字节码）→ **运行时最低 Java 9**
-> - `graphql` 自身是 Java 8 字节码，但运行需 `graphql-java 21.5`（Java 11 字节码）→ **运行时最低 Java 11**
-> 其余模块的字节码与依赖在 Java 8 上均可运行。
+### 构建与运行
 
 > **构建必须使用 JDK 21**（Gradle JVM）。本仓库统一用：
 > `JAVA_HOME=/Library/Java/JavaVirtualMachines/jdk-21.0.11.jdk/Contents/Home ./gradlew build`
 > （注意：`/usr/libexec/java_home -v 21` 在部分 macOS 上会误解析到旧 JDK，导致编译报 Java 12 语法错误。）
-> 构建期用 JDK 21，但产物仍以 `--release 8` 编译，**运行时向下兼容 Java 8** —— 二者不矛盾。
+> 构建期用 JDK 21 编译，产物以 `--release 17` 产出，**运行时需 Java 17+**；
+> 引入 `virtualthreads` / `spring-boot-starter` 等模块时需 **Java 21** —— 与 Spring Boot 3 一致。
 
-自行复现（脚本会自动下载 Temurin 8 JRE 并跑，无需预装 Java 8；本机已有 JDK 8 可直接 `JAVA8_HOME=...` 指过去）：
-
-```bash
-./scripts/java8-runtime-smoke/run.sh
-```
+> **第三方依赖运行时下限**（非本框架字节码约束）：`openapi` 运行需 `snakeyaml 2.2`（Java 9+）、
+> `graphql` 运行需 `graphql-java 21.5`（Java 11+）；二者均不高于基线 Java 17，无额外影响。
 
 ## 集成测试与 CI
 

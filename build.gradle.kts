@@ -3,8 +3,8 @@
  *
  * Policy decisions (see docs/architecture-decisions.md):
  *  - Pure Java: no Kotlin, no fat-jar/shadow, no external quality plugins.
- *  - Baseline target: Java 8 (--release 8) for the classic-era modules;
- *    AI-era modules (ai/rag/mcp) opt up to --release 17 in their own scripts.
+ *  - Baseline target: Java 17 (--release 17) for all modules — the same floor as
+ *    Spring Boot 3 / Jakarta EE 10; Loom-era modules opt up to --release 21.
  *  - Only build-in plugins: java-library + maven-publish (+jacoco).
  */
 
@@ -36,7 +36,8 @@ subprojects {
     // JPMS：构件写入 Automatic-Module-Name（Java 8 侧）；
     // 若模块提供 src/main/java9/module-info.java，则再打**多版本 JAR**（Java 9+ 侧），
     // 描述符置于 META-INF/versions/9/、manifest 置 Multi-Release: true。
-    // 主代码仍以 --release 8 编译，Java 8 基线与 JPMS 兼容性兼得。
+    // 主代码以 --release 17 编译（JPMS 描述符单独以 --release 9 放入多版本 JAR），
+    // Java 17 基线与 JPMS 兼容性兼得，且对齐 Spring Boot 3 / Jakarta EE 10。
     // 模块名优先 ext.moduleName，其次按特殊表（项目名是保留字时），默认 com.jvfault.<name>
     val moduleName: String = run {
         val fromExtra = project.extra.properties["moduleName"] as String?
@@ -134,9 +135,9 @@ subprojects {
 
     tasks.withType<JavaCompile>().configureEach {
         options.encoding = "UTF-8"
-        // module-info 描述符需 --release 9（在多版本 JAR 任务里单独设定）；其余模块保持 Java 8 基线
+        // module-info 描述符需 --release 9（在多版本 JAR 任务里单独设定）；其余模块保持 Java 17 基线
         if (name != "compileJava9ModuleInfo") {
-            options.release = 8
+            options.release = 17
         }
         options.compilerArgs.addAll(listOf("-parameters", "-Xlint:all,-processing,-serial"))
     }
