@@ -1,14 +1,10 @@
-package com.jvfault.spring.boot.starter.requestfixture;
+package com.jvfault.core.scopefixture;
 
 import com.jvfault.core.annotation.Component;
 import jakarta.annotation.PreDestroy;
 
-/**
- * jvfault 的 REQUEST 作用域组件：用来验证「暴露到 Spring 后作用域是否还能保持」，
- * 以及「退域时 @PreDestroy 是否触发」。
- */
 @Component(scope = Component.Scope.REQUEST)
-public class RequestProbe {
+public class RequestBean {
 
     public int mark;
     public boolean destroyed;

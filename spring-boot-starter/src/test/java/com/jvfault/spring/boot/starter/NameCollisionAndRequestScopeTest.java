@@ -62,27 +62,33 @@ class NameCollisionAndRequestScopeTest {
     }
 
     @Test
-    @DisplayName("REQUEST 作用域（钉现状，与宣称不符，见 TODO）：两次 enterRequestScope 取到同一实例")
-    void requestScopedBeanIsCurrentlySharedAcrossRequestScopes() {
+    @DisplayName("REQUEST 作用域（修复后，#10）：同一请求内同实例、跨请求换新实例、退域触发 @PreDestroy")
+    void requestScopedBeanIsolatedPerRequest() {
         runner.withPropertyValues("jvfault.base-packages=" + REQUEST_PKG)
                 .run(context -> {
                     BeanRegistry registry = context.getBean(BeanRegistry.class);
 
+                    // 同一请求作用域内：多次解析取到同一实例，且状态共享（证明不是每次重建）
                     Object firstScope = registry.enterRequestScope();
                     RequestProbe first = context.getBean(RequestProbe.class);
+                    RequestProbe firstAgain = context.getBean(RequestProbe.class);
+                    assertThat(first).isSameAs(firstAgain);
+                    first.mark = 99;
+                    assertThat(firstAgain.mark).isEqualTo(99);
+                    RequestProbe captured = first;
                     registry.exitRequestScope(firstScope);
 
+                    // 新请求作用域：全新实例（不串号），且上一请求的 @PreDestroy 已被触发
                     Object secondScope = registry.enterRequestScope();
                     RequestProbe second = context.getBean(RequestProbe.class);
-                    registry.exitRequestScope(secondScope);
-
-                    // 钉现状：REQUEST 作用域目前退化成单例 ——
-                    // ① core 的 getBeanInstance 把 REQUEST 与 SINGLETON 同等处理并缓存；
-                    // ② 暴露到 Spring 时 isSingleton() = !isPrototype(name)，REQUEST 也判为 true。
-                    // 与「每个请求一个实例」的宣称不符，修复前请勿把它读成正确行为。
                     assertThat(second)
-                            .as("钉现状：REQUEST 作用域当前跨请求复用同一实例（与宣称不符，见 TODO）")
-                            .isSameAs(first);
+                            .as("REQUEST 作用域应跨请求换新实例，不能复用上一请求的实例（串号 bug）")
+                            .isNotSameAs(first);
+                    assertThat(second.mark).isEqualTo(0);
+                    assertThat(captured.destroyed)
+                            .as("退域时应触发 REQUEST bean 的 @PreDestroy")
+                            .isTrue();
+                    registry.exitRequestScope(secondScope);
                 });
     }
 

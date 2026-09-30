@@ -91,10 +91,15 @@ public final class JvfaultApplication {
      * 创建容器但不刷新 (用于测试)
      */
     public static ModuleContainer createContainer(Class<?> rootModuleClass, String... basePackages) {
-        String[] packages = basePackages.length > 0
+        if (rootModuleClass == null) {
+            throw new IllegalArgumentException("rootModuleClass 不能为 null");
+        }
+        // basePackages 可能为 null（例如调用方写成 createContainer(X.class, (String[]) null)），
+        // 必须先判空再访问 .length，否则直接 NPE（#12）。
+        String[] packages = (basePackages != null && basePackages.length > 0)
                 ? basePackages
                 : new String[]{defaultPackage(rootModuleClass)};
-        
+
         BeanRegistry beanRegistry = new DefaultBeanRegistry();
         ModuleContainer container = new ModuleContainer(beanRegistry);
         container.refresh(rootModuleClass, packages);

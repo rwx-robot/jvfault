@@ -135,6 +135,9 @@ public class JvfaultAutoConfiguration {
             // beanClass 指向桥接工厂：Spring 因此按 FactoryBean 处理，产品由 getObject() 提供
             def.setBeanClass(JvfaultBeanBridge.class);
             def.setTargetType(type != null ? type : Object.class);
+            // Spring 官方推荐的 FactoryBean 类型可见性机制：让 getType 在工厂**实例化之前**
+            // 就能拿到产品类型，避免类型检查阶段提前 touch 工厂/产品（可选加固）。
+            def.setAttribute(FactoryBean.OBJECT_TYPE_ATTRIBUTE, type != null ? type : Object.class);
             def.setInstanceSupplier(() -> new JvfaultBeanBridge<>(name, type, registry));
             // 工厂自身是单例；产品的单例性由 JvfaultBeanBridge#isSingleton 决定
             def.setScope(BeanDefinition.SCOPE_SINGLETON);
@@ -178,12 +181,13 @@ public class JvfaultAutoConfiguration {
         }
 
         /**
-         * 产品作用域取自 jvfault：prototype 组件在 Spring 侧也应每次取到新实例，
-         * 不能被压平成单例。
+         * 产品作用域取自 jvfault：只有 SINGLETON 在 Spring 侧按单例缓存；
+         * PROTOTYPE 与 REQUEST 都返回 false，Spring 每次解析都重新向 jvfault 取产品 ——
+         * 前者每次新实例，后者取到「当前请求作用域」内的实例（#10 修复后跨请求不串号）。
          */
         @Override
         public boolean isSingleton() {
-            return !registry.isPrototype(beanName);
+            return registry.isSingleton(beanName);
         }
     }
 

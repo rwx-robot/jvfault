@@ -60,7 +60,7 @@ class ReadmeFactsConsistencyTest {
      * <b>新增/删除任何测试后必须</b>：跑全量 {@code ./gradlew test}，核对真实总数，再更新本常量与 README。
      * （v1.0.9 曾漏掉这步 —— 加了 7 个测试却仍写 274，导致 README 静默漂移；v1.0.10 修正为 281。）
      */
-    private static final int EXPECTED_TEST_COUNT = 300;
+    private static final int EXPECTED_TEST_COUNT = 308;
 
     private static final Pattern RELEASE_DECL =
             Pattern.compile("options\\.release\\s*=\\s*(\\d+)");
@@ -271,7 +271,7 @@ class ReadmeFactsConsistencyTest {
     }
 
     @Test
-    @DisplayName("测试总数：badge 与维度表都必须是 274")
+    @DisplayName("测试总数：badge 与维度表都必须是 EXPECTED_TEST_COUNT（= 实际测试总数）")
     void testCountConsistent() throws IOException {
         List<String> lines = readmeLines();
         String whole = String.join("\n", lines);
@@ -279,11 +279,11 @@ class ReadmeFactsConsistencyTest {
         Matcher badge = Pattern.compile("tests-(\\d+)(?:%20|\\s+)passing").matcher(whole);
         assertTrue(badge.find(), "README Tests badge 未写 tests-NNN passing 形态");
         assertEquals(EXPECTED_TEST_COUNT, Integer.valueOf(badge.group(1)),
-                "README Tests badge 的测试数与实际不符（应为 274；改测试后请同步）");
-        // 2) 维度表「测试」行也要 274
+                "README Tests badge 的测试数与实际不符（应等于 EXPECTED_TEST_COUNT；改测试后请同步本常量与 README）");
+        // 2) 维度表「测试」行也要等于 EXPECTED_TEST_COUNT
         Integer readme = firstInt(dimensionCell(lines, "测试"));
         assertEquals(EXPECTED_TEST_COUNT, readme,
-                "README「维度」表「测试」行的数字与 badge 不符（应为 274）");
+                "README「维度」表「测试」行的数字与 badge 不符（应等于 EXPECTED_TEST_COUNT）");
     }
 
     /**

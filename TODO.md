@@ -1,6 +1,6 @@
 # jvfault TODO — 剩余工作清单
 
-> 最后更新：2026-09-27（对应 **v1.0.13 · 引擎现代化**）
+> 最后更新：2026-10-01（对应 **v1.0.15 · 核心作用域与健壮性**）
 > 状态口径：✅ 已完成 / ⏸ 待 Ny 决策或外部凭据 / 🔧 技术债（可自主推进）
 
 ---
@@ -17,10 +17,10 @@
 | 6 | **P2** | Javadoc 站点 | ✅ | 聚合站点 + Pages 部署（commit c1337ff） |
 | 7 | **P2** | 「18 个传输集成测试」仍未被机检 | ✅ | 已加 scripts/verify-transport-it-count.sh（commit f70c39b） |
 | 8 | — | spring-boot-starter 无 `module-info` | ✅ 刻意 | 见下方说明 |
-| 10 | **P2** | `REQUEST` 作用域宣称与实现不符（实际等同单例，会跨请求串号） | ⏸ | 需 core 改动，本轮 core 归零未做 |
-| 11 | **P2** | Spring bean 名与 jvfault 自有 `@Component` 撞名 → 组件静默消失（I1） | ⏸ | 需 core 支持「外部预登记 vs 自有」区分（Origin/role），等架构师定 API |
-| 12 | **P3** | `JvfaultApplication.createContainer(cls, null, ...)` 会 NPE（S2） | ⏸ | core 健壮性，归下一轮 core 批次 |
-| 13 | **P3** | `DefaultBeanRegistry.registerSingleton` 重复注册静默覆盖（纵深防御） | ⏸ | core 语义变更，需单独一轮 + 全量回归 |
+| 10 | **P2** | `REQUEST` 作用域宣称与实现不符（实际等同单例，会跨请求串号） | ✅ | **v1.0.15 已修**：core 用 ThreadLocal 请求作用域栈实现「每请求一实例」；无活动作用域解析时 fail-fast（不再退化成单例串号）；退域触发 `@PreDestroy`/`destroyMethod`；桥接 `JvfaultBeanBridge.isSingleton` 改为 `registry.isSingleton`，REQUEST 不再被 Spring 当单例缓存 |
+| 11 | **P2** | Spring bean 名与 jvfault 自有 `@Component` 撞名 → 组件静默消失（I1） | ⏸ | **仍 defer**：需 core 支持「外部预登记 vs 自有」区分（Origin/role），等架构师定 API；v1.0.14 起已识别，本轮未做（避免单方面改 core 公开语义） |
+| 12 | **P3** | `JvfaultApplication.createContainer(cls, null, ...)` 会 NPE（S2） | ✅ | **v1.0.15 已修**：`basePackages` 加 null 守卫（`(basePackages != null && length>0)`），`rootModuleClass` 空校验抛 `IllegalArgumentException` |
+| 13 | **P3** | `DefaultBeanRegistry.registerSingleton` 重复注册静默覆盖（纵深防御） | ✅ | **v1.0.15 已修**：同名且<b>不同</b>实例重复注册抛 `IllegalStateException`；同名<b>同</b>实例幂等放行 |
 
 ---
 
@@ -175,3 +175,5 @@ Spring Boot 的自动配置并非 JPMS 友好；本模块按 classpath 适配器
 | 传输集成测试数量机检（`scripts/verify-transport-it-count.sh`） | v1.0.13+（commit f70c39b） |
 | Java 8 冒烟升级为逐模块字节码基线验证（覆盖原「6 未验证」模块） | v1.0.13+ |
 | 聚合 Javadoc 站点任务 + GitHub Pages 自动部署（pages.yml） | v1.0.13+（commit c1337ff） |
+| spring-boot-starter 双向桥接 + 可运行示例（反向注入 + 示例工程） | v1.0.14（`6a81f9b`/`5e9eefa`） |
+| 核心 REQUEST 作用域真正按请求隔离 + `createContainer` NPE 守卫 + `registerSingleton` 碰撞防护 | v1.0.15 |

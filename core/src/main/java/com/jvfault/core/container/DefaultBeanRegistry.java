@@ -62,6 +62,13 @@ public class DefaultBeanRegistry implements BeanRegistry {
     /** 已就绪的 Bean 后处理器 (初始化序列回调) */
     private volatile List<BeanPostProcessor> beanPostProcessors = Collections.emptyList();
 
+    /**
+     * 请求作用域栈：每个线程一条 Deque，栈顶为「当前请求」的实例缓存（name -> instance）。
+     * 支持嵌套请求作用域（外层请求内再开子请求），退出时按栈顶清理。
+     */
+    private final ThreadLocal<Deque<Map<String, Object>>> requestScopeStack =
+            ThreadLocal.withInitial(ArrayDeque::new);
+
     // ============ 注册 API ============
 
     @Override
@@ -101,17 +108,31 @@ public class DefaultBeanRegistry implements BeanRegistry {
 
     @Override
     public BeanRegistry registerSingleton(String name, Object instance) {
-        singletonObjects.put(name, instance);
-        BeanDefinition def = new BeanDefinition(name, instance.getClass());
+        String canonical = resolveAlias(name);
+        BeanDefinition existing = beanDefinitions.get(canonical);
+        // 纵深防御（#13）：同名且已绑定到<b>不同</b>实例时，拒绝静默覆盖 —— 否则运行期才暴露的
+        // 「注入到错误实例」极难排查。同名且<b>同一</b>实例的重复登记是幂等操作，放行
+        // （避免「重复暴露」反而引入启动崩溃）。
+        if (existing != null && existing.getInstance() != null) {
+            Object existingInstance = existing.getInstance();
+            if (existingInstance == instance) {
+                return this;
+            }
+            throw new IllegalStateException("registerSingleton 重复注册：名称 '" + name
+                    + "' 已绑定到不同实例（类型 " + existingInstance.getClass().getName()
+                    + "），拒绝静默覆盖以免丢失既有 bean。如需替换请先 remove 或换名。");
+        }
+        singletonObjects.put(canonical, instance);
+        BeanDefinition def = new BeanDefinition(canonical, instance.getClass());
         def.setScope(Component.Scope.SINGLETON);
         def.setInstance(instance);
         def.setInitialized(true);
-        beanDefinitions.put(name, def);
-        if (!registrationOrder.contains(name)) {
-            registrationOrder.add(name);
+        beanDefinitions.put(canonical, def);
+        if (!registrationOrder.contains(canonical)) {
+            registrationOrder.add(canonical);
         }
-        indexType(name, instance.getClass());
-        log.debug("Registered singleton instance: {}", name);
+        indexType(canonical, instance.getClass());
+        log.debug("Registered singleton instance: {}", canonical);
         return this;
     }
 
@@ -355,24 +376,102 @@ public class DefaultBeanRegistry implements BeanRegistry {
 
     @Override
     public Object enterRequestScope() {
-        return new Object();
+        Map<String, Object> scope = new HashMap<>();
+        requestScopeStack.get().push(scope);
+        return scope;
     }
 
     @Override
     public void exitRequestScope(Object scopeId) {
-        // 请求作用域 Bean 清理由 Web 容器负责
+        Deque<Map<String, Object>> stack = requestScopeStack.get();
+        Map<String, Object> current = stack.peek();
+        if (current == null) {
+            return;
+        }
+        if (scopeId != current) {
+            log.warn("exitRequestScope 收到的令牌与当前栈顶不符（可能嵌套错乱），仍按栈顶清理");
+        }
+        stack.pop();
+        // 退域即销毁：触发本请求内所有 REQUEST bean 的 @PreDestroy / destroyMethod，
+        // 确保请求结束不残留实例引用（避免内存泄漏与跨请求状态串号）。
+        for (Map.Entry<String, Object> entry : current.entrySet()) {
+            Object instance = entry.getValue();
+            BeanDefinition def = beanDefinitions.get(entry.getKey());
+            if (def != null) {
+                String destroyMethod = def.getDestroyMethodName();
+                if (destroyMethod != null && !destroyMethod.isEmpty()
+                        && !"(inferred)".equals(destroyMethod)) {
+                    try {
+                        Method m = instance.getClass().getMethod(destroyMethod);
+                        m.setAccessible(true);
+                        m.invoke(instance);
+                    } catch (NoSuchMethodException ignored) {
+                        // destroyMethod 不存在则忽略（与 singleton 处理一致）
+                    } catch (Exception e) {
+                        log.error("Failed to invoke destroyMethod on request-scoped bean", e);
+                    }
+                }
+            }
+            invokeDestroyMethods(instance);
+        }
+        if (stack.isEmpty()) {
+            requestScopeStack.remove();
+        }
+    }
+
+    /** 调用实例上所有 @PreDestroy 方法（父类也扫描）。 */
+    private void invokeDestroyMethods(Object instance) {
+        Class<?> clazz = instance.getClass();
+        while (clazz != null && clazz != Object.class) {
+            for (Method method : clazz.getDeclaredMethods()) {
+                if (method.isAnnotationPresent(jakarta.annotation.PreDestroy.class)) {
+                    try {
+                        method.setAccessible(true);
+                        method.invoke(instance);
+                    } catch (Exception e) {
+                        log.error("Failed to invoke @PreDestroy on request-scoped bean", e);
+                    }
+                }
+            }
+            clazz = clazz.getSuperclass();
+        }
     }
 
     // ============ 内部实现 ============
 
     private Object getBeanInstance(String name, BeanDefinition def) {
         Component.Scope scope = def.getScope();
-        if (scope == Component.Scope.SINGLETON || scope == Component.Scope.REQUEST) {
+        if (scope == Component.Scope.SINGLETON) {
             return getSingleton(name, def);
         } else if (scope == Component.Scope.PROTOTYPE) {
             return createBean(name, def);
+        } else if (scope == Component.Scope.REQUEST) {
+            return getRequestScopedInstance(name, def);
         }
         throw new IllegalStateException("Unknown scope: " + scope);
+    }
+
+    /**
+     * REQUEST 作用域解析：每个（线程局部的）请求作用域内同一 bean 名返回同一实例，
+     * 跨请求作用域返回全新实例 —— 真正兑现「每个请求一个实例」的宣称（#10）。
+     *
+     * <p>若当前线程没有活动请求作用域仍解析 REQUEST bean，则<b>直接失败</b>（fail-fast），
+     * 而不是退化成单例偷偷跨请求串号 —— 后者比报错更难排查。
+     */
+    private Object getRequestScopedInstance(String name, BeanDefinition def) {
+        Map<String, Object> current = currentRequestScope();
+        if (current == null) {
+            throw new IllegalStateException("REQUEST 作用域的 bean '" + name + "' 在没有活动请求作用域时被解析。"
+                    + "请用 enterRequestScope()/exitRequestScope() 包裹解析过程"
+                    + "（Web 集成场景下由框架自动管理），或改用 singleton/prototype 作用域。");
+        }
+        // computeIfAbsent：同一请求内首次创建并缓存，后续命中缓存（含 @PostConstruct 只跑一次）
+        return current.computeIfAbsent(name, k -> createBean(name, def));
+    }
+
+    /** 取当前线程栈顶的请求作用域缓存；无活动作用域时返回 null。 */
+    private Map<String, Object> currentRequestScope() {
+        return requestScopeStack.get().peek();
     }
 
     /**

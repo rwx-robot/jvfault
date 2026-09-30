@@ -325,6 +325,9 @@ public class ModuleContainer {
             for (BeanDefinition def : module.getProviderDefinitions().values()) {
                 Object instance = def.getInstance();
                 if (instance == null) continue;
+                // REQUEST 作用域实例由请求作用域生命周期（enter/exit）负责销毁，
+                // 容器级销毁不再调一次 @PreDestroy，否则会双调用。
+                if (def.getScope() == Component.Scope.REQUEST) continue;
 
                 // @PreDestroy
                 try {
