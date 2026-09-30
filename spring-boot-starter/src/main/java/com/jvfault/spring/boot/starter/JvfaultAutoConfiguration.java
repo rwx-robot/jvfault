@@ -132,8 +132,11 @@ public class JvfaultAutoConfiguration {
             }
             Class<?> type = registry.getType(name);
             RootBeanDefinition def = new RootBeanDefinition();
+            // beanClass 指向桥接工厂：Spring 因此按 FactoryBean 处理，产品由 getObject() 提供
+            def.setBeanClass(JvfaultBeanBridge.class);
             def.setTargetType(type != null ? type : Object.class);
-            def.setInstanceSupplier(() -> registry.getBean(name));
+            def.setInstanceSupplier(() -> new JvfaultBeanBridge<>(name, type, registry));
+            // 工厂自身是单例；产品的单例性由 JvfaultBeanBridge#isSingleton 决定
             def.setScope(BeanDefinition.SCOPE_SINGLETON);
             try {
                 bdr.registerBeanDefinition(name, def);
