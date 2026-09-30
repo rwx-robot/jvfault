@@ -28,7 +28,7 @@ listOf(
 ).forEach { include(":$it") }
 
 listOf(
-    "v0.8.0", "v0.9.0", "v0.10.0", "v0.11.0", "v1.0.0"
+    "v0.8.0", "v0.9.0", "v0.10.0", "v0.11.0", "v1.0.0", "spring-boot-bridge"
 ).forEach { include(":examples:$it") }
 
 include(":distribution")

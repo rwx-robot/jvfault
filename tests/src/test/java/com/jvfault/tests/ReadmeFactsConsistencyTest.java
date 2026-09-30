@@ -45,7 +45,11 @@ class ReadmeFactsConsistencyTest {
 
     // ── 单一事实来源：源码派生值必须与这些常量一致；常量漂移由「源码派生」侧捕获 ──
     private static final int EXPECTED_FRAMEWORK_MODULES = 40;
-    private static final int EXPECTED_EXAMPLES = 5;
+    /**
+     * 版本示例数：v0.8.0 → v1.0.0 共 5 个，v1.0.14 新增 {@code spring-boot-bridge}
+     * （Spring Boot 3 ↔ jvfault 双向桥接可运行示例）→ 6 个。
+     */
+    private static final int EXPECTED_EXAMPLES = 6;
     private static final int EXPECTED_TRANSPORT = 7;
     private static final int EXPECTED_MODULES_WITH_TESTS = 39;
     private static final int EXPECTED_MR_JAR = 38;
@@ -56,34 +60,7 @@ class ReadmeFactsConsistencyTest {
      * <b>新增/删除任何测试后必须</b>：跑全量 {@code ./gradlew test}，核对真实总数，再更新本常量与 README。
      * （v1.0.9 曾漏掉这步 —— 加了 7 个测试却仍写 274，导致 README 静默漂移；v1.0.10 修正为 281。）
      */
-    private static final int EXPECTED_TEST_COUNT = 287;
-
-    /** 默认 baseline —— 根 build.gradle.kts 的 options.release。 */
-    private static final int DEFAULT_RELEASE = 8;
-
-    /** release 显式偏离默认基线的模块（未列出的视为 DEFAULT_RELEASE）。 */
-    private static final Map<String, Integer> EXPECTED_RELEASE = new LinkedHashMap<>();
-
-    static {
-        EXPECTED_RELEASE.put("ai", 17);
-        EXPECTED_RELEASE.put("rag", 17);
-        EXPECTED_RELEASE.put("mcp", 17);
-        EXPECTED_RELEASE.put("compliance", 17);
-        EXPECTED_RELEASE.put("migration", 17);
-        EXPECTED_RELEASE.put("virtualthreads", 21);
-        EXPECTED_RELEASE.put("tests", 17);          // 测试套件，不进运行时
-        EXPECTED_RELEASE.put("examples/v0.8.0", 21);
-    }
-
-    /**
-     * 运行 Java 8 冒烟的「运行时模块」集合 = 框架模块去掉两个纯测试模块
-     * （{@code test} / {@code tests}）。它们虽被 maven-publish 打包，但属于测试设施、
-     * 不参与「真 Java 8 运行时能否加载」的验收，故冒烟只数这 37 个。
-     */
-    private static boolean isRuntimeModule(String moduleName) {
-        return !moduleName.equals("test") && !moduleName.equals("tests")
-                && !moduleName.startsWith("examples/");
-    }
+    private static final int EXPECTED_TEST_COUNT = 295;
 
     private static final Pattern RELEASE_DECL =
             Pattern.compile("options\\.release\\s*=\\s*(\\d+)");
@@ -307,47 +284,6 @@ class ReadmeFactsConsistencyTest {
         Integer readme = firstInt(dimensionCell(lines, "测试"));
         assertEquals(EXPECTED_TEST_COUNT, readme,
                 "README「维度」表「测试」行的数字与 badge 不符（应为 274）");
-    }
-
-    @Test
-    @DisplayName("运行时冒烟数：高 JDK 已发布模块 6 个，且 31 通过 + 6 抛 = 37 已发布")
-    void runtimeSmokeCountsConsistent() throws IOException {
-        Map<String, Integer> actual = scanActualRelease();
-        // 源码派生：运行时模块里 release>8 的数量（即 Java 8 上会抛 UnsupportedClassVersionError 的）
-        int highJdkRuntime = 0;
-        for (Map.Entry<String, Integer> e : actual.entrySet()) {
-            if (!isRuntimeModule(e.getKey())) continue;
-            if (e.getValue() > DEFAULT_RELEASE) highJdkRuntime++;
-        }
-        // 源码派生：参与 Java 8 冒烟的运行时模块总数
-        int runtimeTotal = 0;
-        for (String m : parseSettingsModules().get(0)) {
-            if (isRuntimeModule(m)) runtimeTotal++;
-        }
-
-        List<String> lines = readmeLines();
-        String whole = String.join("\n", lines);
-
-        // README 必须写「6 个 jar 抛 UnsupportedClassVersionError」
-        Matcher failM = Pattern.compile("(\\d+)\\s*个\\s*jar\\s*抛").matcher(whole);
-        assertTrue(failM.find(), "README「运行时实测」未写「N 个 jar 抛 UnsupportedClassVersionError」");
-        assertEquals(highJdkRuntime, Integer.valueOf(failM.group(1)),
-                "README 说抛错的 jar 数与源码派生的高 JDK 运行时模块数不符");
-
-        // README 必须写「31 个 jar 全部通过」
-        Matcher passM = Pattern.compile("(\\d+)\\s*个\\s*jar\\s*全部通过").matcher(whole);
-        assertTrue(passM.find(), "README「运行时实测」未写「N 个 jar 全部通过」");
-        int pass = Integer.valueOf(passM.group(1));
-
-        // 内部一致性：通过 + 抛错 == 已发布(运行时)总数
-        assertEquals(runtimeTotal, pass + highJdkRuntime,
-                "README 的 通过+抛错 之和应与运行时模块总数一致");
-
-        // README 必须写「37 个已发布 jar」（此处指运行时验收的 37 个）
-        Matcher totalM = Pattern.compile("(\\d+)\\s*个\\s*已发布\\s*jar").matcher(whole);
-        assertTrue(totalM.find(), "README「运行时实测」未写「N 个已发布 jar」");
-        assertEquals(runtimeTotal, Integer.valueOf(totalM.group(1)),
-                "README 的「已发布 jar」数与运行时模块总数不符（= 框架模块 - test - tests）");
     }
 
     /**

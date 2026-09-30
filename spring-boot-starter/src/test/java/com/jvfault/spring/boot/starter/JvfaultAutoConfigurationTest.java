@@ -2,7 +2,10 @@ package com.jvfault.spring.boot.starter;
 
 import com.jvfault.core.container.BeanRegistry;
 import com.jvfault.core.module.ModuleContainer;
+import com.jvfault.spring.boot.starter.fixture.ClockService;
 import com.jvfault.spring.boot.starter.fixture.GreetingService;
+import com.jvfault.spring.boot.starter.reversefixture.ManualClock;
+import com.jvfault.spring.boot.starter.reversefixture.TimeAwareGreeter;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.boot.autoconfigure.AutoConfigurations;
@@ -50,5 +53,49 @@ class JvfaultAutoConfigurationTest {
         runner.run(context ->
                 assertEquals(0, context.getBeansOfType(ModuleContainer.class).size(),
                         "未配置 jvfault.base-packages 时不应创建容器"));
+    }
+
+    @Test
+    @DisplayName("import-spring-beans=true：标注 @JvfaultComponent 的 Spring bean 被反向注入，jvfault @Component 可 @Inject 它")
+    void springBeansImportedIntoJvfault() {
+        runner
+                .withPropertyValues(
+                        "jvfault.base-packages=com.jvfault.spring.boot.starter.reversefixture",
+                        "jvfault.import-spring-beans=true")
+                // 这是 Spring 侧被 @JvfaultComponent 标注的 bean，会被反向注入 jvfault
+                .withBean(ClockService.class)
+                .run(context -> {
+                    ModuleContainer container = context.getBean(ModuleContainer.class);
+                    BeanRegistry registry = context.getBean(BeanRegistry.class);
+
+                    // 反向注入：ClockService 出现在 jvfault 容器里
+                    ClockService imported = registry.getBean(ClockService.class);
+                    assertNotNull(imported,
+                            "标注 @JvfaultComponent 的 Spring bean 应被注册进 jvfault 容器");
+
+                    // jvfault @Component 通过 @Inject 拿到了 Spring bean，且能真正调用
+                    TimeAwareGreeter greeter = context.getBean(TimeAwareGreeter.class);
+                    String greeting = greeter.greet("ny");
+                    assertTrue(greeting.startsWith("hello ny @ "),
+                            "greeter 应使用注入的 ClockService 生成时间戳，实际：" + greeting);
+
+                    // 同一个实例：Spring 里的 ClockService 与 jvfault 里的是同一个
+                    assertSame(context.getBean(ClockService.class), imported,
+                            "反向注入应复用 Spring 原有的单例实例，而非新建");
+                });
+    }
+
+    @Test
+    @DisplayName("import-spring-beans 缺省为 false：即使存在 @JvfaultComponent 的 Spring bean，也不会进入 jvfault")
+    void reverseInjectionOffByDefault() {
+        runner
+                .withPropertyValues("jvfault.base-packages=com.jvfault.spring.boot.starter.fixture")
+                .withBean(ClockService.class)
+                .run(context -> {
+                    ModuleContainer container = context.getBean(ModuleContainer.class);
+                    BeanRegistry registry = context.getBean(BeanRegistry.class);
+                    assertFalse(registry.containsBean(ClockService.class),
+                            "import-spring-beans 缺省关闭，Spring bean 不应进入 jvfault 容器");
+                });
     }
 }

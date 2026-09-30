@@ -26,6 +26,13 @@ public class JvfaultProperties {
     /** 是否把 jvfault 容器里的 bean 暴露为 Spring bean（默认开）。 */
     private boolean exposeBeans = true;
 
+    /**
+     * 是否<b>反向</b>注入：把标注了 {@link JvfaultComponent} 的 Spring 单例注册进
+     * jvfault 容器，使其能被 jvfault 的 {@code @Component} 通过 {@code @Inject} 直接拿到。
+     * 默认关 —— 显式开启，避免把 Spring 容器倒灌进 jvfault。
+     */
+    private boolean importSpringBeans = false;
+
     public String[] getBasePackages() {
         return basePackages;
     }
@@ -48,5 +55,13 @@ public class JvfaultProperties {
 
     public void setExposeBeans(boolean exposeBeans) {
         this.exposeBeans = exposeBeans;
+    }
+
+    public boolean isImportSpringBeans() {
+        return importSpringBeans;
+    }
+
+    public void setImportSpringBeans(boolean importSpringBeans) {
+        this.importSpringBeans = importSpringBeans;
     }
 }

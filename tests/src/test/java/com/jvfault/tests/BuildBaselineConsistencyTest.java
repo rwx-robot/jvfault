@@ -73,6 +73,8 @@ class BuildBaselineConsistencyTest {
         // —— 非发布产物：不进 README 清单 ——
         EXPECTED.put("tests", 17);                 // 测试套件本身
         EXPECTED.put("examples/v0.8.0", 21);       // 依赖 virtualthreads 的示例
+        // Spring Boot 3 桥接示例：与 spring-boot-starter 同基线（JDK 21）
+        EXPECTED.put("examples/spring-boot-bridge", 21);
     }
 
     /** {@code tests} 与 {@code examples/*} 不对外发布，README 无需为它们标 JDK。 */

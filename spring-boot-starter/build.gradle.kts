@@ -30,6 +30,9 @@ dependencies {
     testImplementation("org.assertj:assertj-core:3.24.2")
     testImplementation("org.junit.jupiter:junit-jupiter:5.10.2")
     testRuntimeOnly("org.junit.platform:junit-platform-launcher:1.10.2")
+    // 日志绑定：没有它 slf4j 走 no-op，测试里 OutputCapture 抓不到任何 warn/error，
+    // 「跳过了某个 bean」这类只在日志里体现的行为就无法断言（假绿风险）。
+    testRuntimeOnly("ch.qos.logback:logback-classic:1.5.6")
 }
 
 tasks.withType<JavaCompile>().configureEach {

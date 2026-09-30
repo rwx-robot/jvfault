@@ -10,13 +10,17 @@
 | # | 优先级 | 事项 | 状态 | 阻塞点 |
 |---|:------:|------|:----:|--------|
 | 1 | **P1** | Sonatype OSS 发布（Maven Central） | ⏸ | 缺凭据 |
-| 2 | **P1** | spring-boot-starter：反向注入（Spring→jvfault） | ⏸ | 待 Ny 决策 |
-| 3 | **P1** | spring-boot-starter：示例工程 | ⏸ | 待 Ny 决策 |
+| 2 | **P1** | spring-boot-starter：反向注入（Spring→jvfault） | ✅ | 本轮落地（`@JvfaultComponent` + `jvfault.import-spring-beans`，默认关） |
+| 3 | **P1** | spring-boot-starter：示例工程 | ✅ | 本轮落地（`examples/spring-boot-bridge`，可运行 + web=NONE 测试） |
 | 4 | **P2** | `distribution` BOM 模块缺失 | ✅ | 已落地（commit cfee7dd） |
 | 5 | **P2** | Java 8 冒烟未能覆盖 6 个模块 | ✅ | 已做字节码级验证（见下） |
 | 6 | **P2** | Javadoc 站点 | ✅ | 聚合站点 + Pages 部署（commit c1337ff） |
 | 7 | **P2** | 「18 个传输集成测试」仍未被机检 | ✅ | 已加 scripts/verify-transport-it-count.sh（commit f70c39b） |
 | 8 | — | spring-boot-starter 无 `module-info` | ✅ 刻意 | 见下方说明 |
+| 10 | **P2** | `REQUEST` 作用域宣称与实现不符（实际等同单例，会跨请求串号） | ⏸ | 需 core 改动，本轮 core 归零未做 |
+| 11 | **P2** | Spring bean 名与 jvfault 自有 `@Component` 撞名 → 组件静默消失（I1） | ⏸ | 需 core 支持「外部预登记 vs 自有」区分（Origin/role），等架构师定 API |
+| 12 | **P3** | `JvfaultApplication.createContainer(cls, null, ...)` 会 NPE（S2） | ⏸ | core 健壮性，归下一轮 core 批次 |
+| 13 | **P3** | `DefaultBeanRegistry.registerSingleton` 重复注册静默覆盖（纵深防御） | ⏸ | core 语义变更，需单独一轮 + 全量回归 |
 
 ---
 
@@ -39,22 +43,42 @@
 
 ---
 
-### 2️⃣ spring-boot-starter 反向注入（P1 · ⏸ 待 Ny 决策）
+### 2️⃣ spring-boot-starter 反向注入（P1 · ✅ 本轮完成）
 
-**现状**：已实现 **jvfault → Spring** 单向暴露（jvfault 的 bean 注册为 Spring 单例）。
-**待定**：反向（把 Spring bean 塞进 jvfault 的 `BeanRegistry`）。
-**为什么当初没做**：会把两个容器的生命周期与依赖解析纠缠在一起，循环依赖极难诊断。
-**若要做**，建议限定为显式开关（如 `jvfault.import-spring-beans=true`），且只导入使用者显式标注的 bean，避免全量导入引发冲突。
-**验收**：能在一个 Spring Boot 应用里把 Spring 管理的 bean 注入 jvfault 组件，且有测试覆盖生命周期不泄漏。
+**已落地**：`jvfault.import-spring-beans`（**默认 false**，显式 opt-in）+ 新增 `@JvfaultComponent` 标记注解。
+开启后，starter 会把标注 `@JvfaultComponent` 的 **Spring 单例**注册进 jvfault 的 `BeanRegistry`，
+jvfault 的 `@Component` 即可用 `@Inject` 直接拿到 Spring bean。
+
+**关键实现点（为什么这么写）**：
+- **必须在 `container.refresh()` 之前注册** —— jvfault 的 `@Inject` 依赖解析发生在
+  `initializeSingletons()`（refresh 第 5 步），那时 Spring bean 必须已在注册表里。
+  为此 core 新增 `JvfaultApplication.createContainer(root, Consumer<BeanRegistry> beforeRefresh, basePackages)`
+  重载（只用 JDK 的 `Consumer`，core 依旧零 Spring 依赖）。
+- **只导入显式标注的 bean、且只导入 singleton 作用域** —— 避免倒灌整个 Spring 容器，
+  规避 request/prototype 作用域在 jvfault 里无法托管的坑。
+- 用 Spring 的**目标类型**（`getType`，而非 CGLIB 代理类）建索引，保证按接口/父类 `@Inject` 也能命中。
+
+**验收**：starter 新增 2 个用例（`springBeansImportedIntoJvfault` / `reverseInjectionOffByDefault`），
+示例工程端到端验证「Spring ClockService 反向注入 jvfault 且为同一实例」。
 
 ---
 
-### 3️⃣ spring-boot-starter 示例工程（P1 · ⏸ 待 Ny 决策）
+### 3️⃣ spring-boot-starter 示例工程（P1 · ✅ 本轮完成）
 
-**现状**：有 2 个单元测试（`ApplicationContextRunner`）覆盖激活与未激活。
-**缺口**：没有端到端可运行的 Spring Boot 示例（真实 `@SpringBootApplication` + controller）。
-**成本**：需引入 `spring-boot-starter-web`，会新增一个模块并再次改动机检数字。
-**验收**：`./gradlew :examples:spring-boot:run` 能起服务并返回一个由 jvfault 组件处理的响应。
+**已落地**：`examples/spring-boot-bridge`（Spring Boot 3.2.5 + `spring-boot-starter-web`）。
+
+**结构**：`@SpringBootApplication` ExampleApplication + jvfault `@Module` DemoModule
++ jvfault `@Component` Greeter（`@Inject ClockService`）+ Spring `@Service @JvfaultComponent` ClockService
++ `@RestController` DemoController。
+
+**一条请求串起两个容器**：Spring 请求 → jvfault Greeter → Spring ClockService → 响应。
+
+**运行**：`./gradlew :examples:spring-boot-bridge:run` → `http://localhost:8080/greet?name=ny`
+**测试**：`SpringBridgeExampleTest` 以 `web=NONE` 启动（不起 Tomcat，CI 友好）断言双向桥接。
+
+**已知用法约束（已写进示例注释）**：jvfault bean 是自动配置运行时才注册的**动态单例**，
+而用户 bean 先于自动配置 bean 实例化 —— 直接注入会因候选未注册而失败，
+消费方需用 `@Lazy`（或 `ObjectProvider`）。这是动态暴露 bean 的标准姿势。
 
 ---
 

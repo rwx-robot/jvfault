@@ -31,8 +31,19 @@ val projectRoot = rootProject.projectDir.absolutePath
 // 本模块是跨模块验收模块，依赖全量 jar 语义正确。
 // 用「任务路径字符串」而非 Task 引用 —— 路径在执行图构建时惰性解析，
 // 不依赖配置阶段的注册顺序。
+// 排除 distribution：它是 java-platform BOM，没有 jar 任务
+// （不过滤的话任务图解析直接报「Task ':distribution:jar' not found」——
+//   此前一直被 build -x test 掩盖，v1.0.14 首次跑 :tests:test 时暴露）。
 val allModuleJarPaths: List<String> = rootProject.subprojects
     .filter { it != project }
+    // 只要顶层框架模块（:core ... :spring-boot-starter）。
+    // examples/* 与容器项目 :examples 与 JPMS 冒烟无关，拉它们的 jar 只会放大扇入、
+    // 拖慢首次构建（曾经每加一个示例就多一条无关依赖边）。
+    .filter { it.path.count { c -> c == ':' } == 1 && it.path != ":examples" }
+    // distribution 是 java-platform BOM，没有 jar 任务
+    // （不过滤的话任务图解析直接报「Task ':distribution:jar' not found」——
+    //   此前一直被 build -x test 掩盖，v1.0.14 首次跑 :tests:test 时暴露）。
+    .filter { it.name != "distribution" }
     .map { "${it.path}:jar" }
 
 tasks.withType<Test>().configureEach {

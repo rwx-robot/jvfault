@@ -1,3 +1,5 @@
+import org.gradle.jvm.toolchain.JavaLanguageVersion
+
 /**
  * jvfault Framework — common build configuration for all framework modules.
  *
@@ -16,8 +18,11 @@ allprojects {
 // The BOM project is configured separately (java-platform cannot take java-library).
 subprojects {
     // distribution 是 java-platform BOM（与 java-library 互斥），
-    // 它有自己的 build 单独发布；根发布跳过
-    if (name == "distribution" || path.startsWith(":examples:")) return@subprojects
+    // 它有自己的 build 单独发布；根发布跳过。
+    // :examples 是 settings 里的**容器项目**（只做 include 聚合），没有自己的 build 脚本；
+    // 只写 path.startsWith(":examples:") 匹配不到它，于是它会被当成普通模块套上
+    // java-library + maven-publish，产出一个**空 jar**并被发布 —— 必须一并排除。
+    if (name == "distribution" || path == ":examples" || path.startsWith(":examples:")) return@subprojects
 
     apply(plugin = "java-library")
     apply(plugin = "maven-publish")
@@ -216,5 +221,21 @@ val javadocAggregate by tasks.registering(Javadoc::class) {
     }
     // 排除模块描述符：避免 javadoc 进入 module 模式，保持传统「包视图」站点
     exclude("**/module-info.java")
+}
+
+// ---- JDK 固化（构建可复现）----
+// 本机 PATH 上的 java 可能是 12（低于任何模块要求的 17/21），直接 ./gradlew 会以
+// 「invalid target release」失败，且报错信息不会提示是 JDK 版本问题 —— 排查成本很高。
+// 这里统一指定 toolchain：Gradle 自动定位本机 JDK 21，无需人工 export JAVA_HOME，
+// 新人 clone 后 ./gradlew build 即可（CI 的 java-version 同样是 21，两边对齐）。
+//
+// 注意：toolchain 决定「用哪个 JDK 编译」，options.release 决定「产出什么字节码版本」，
+// 二者不冲突 —— 这里固定 21 只为保证编译器可用，各模块仍按自己的 release 产出。
+allprojects {
+    plugins.withId("java") {
+        extensions.configure<JavaPluginExtension> {
+            toolchain { languageVersion.set(JavaLanguageVersion.of(21)) }
+        }
+    }
 }
 
